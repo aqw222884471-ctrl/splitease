@@ -247,6 +247,12 @@ app.post('/api/projects/:projectId/settle', (req, res) => {
 })
 
 const PORT = process.env.PORT || 3000
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
 app.listen(PORT, () => {
   console.log(`🚀 SplitEase API 運行在 port ${PORT}`)
 })
