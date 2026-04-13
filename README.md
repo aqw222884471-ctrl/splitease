@@ -36,3 +36,4 @@ npm run dev
 ## 📄 規格文件
 
 請參考 `SPEC.md`<!-- deploy trigger -->
+<!-- force deploy Mon Apr 13 10:43:54 UTC 2026 -->
