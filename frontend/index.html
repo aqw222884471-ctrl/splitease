@@ -5,80 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SplitEase - 晚餐分帳</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { colors: { primary: '#6366F1', background: '#F8FAFC' } } }
-    }
-  </script>
+  <script>tailwind.config = { theme: { extend: { colors: { primary: '#6366F1', background: '#F8FAFC' } } } }</script>
 </head>
 <body class="bg-background min-h-screen">
   <div id="app"></div>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <script type="text/babel">
     const{useState,useEffect}=React;
+    const API = window.location.hostname === 'localhost' ? '' : '/api';
     const uid=()=>Math.random().toString(36).substr(2,9);
     const code=()=>Math.random().toString(36).substr(2,6).toUpperCase();
-    const load=(k)=>JSON.parse(localStorage.getItem('splitease_'+k)||'null');
-    const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
-    function Home(){
-      return(<div className="text-center py-8"><h1 className="text-4xl font-bold text-orange-500 mb-2">🍜</h1><h2 className="text-2xl font-bold text-indigo-600 mb-6">SplitEase</h2><button onClick={()=>n('c')} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold mb-3">建立新專案</button><button onClick={()=>n('j')} className="block w-full bg-gray-200 py-3 rounded-lg font-bold">加入專案</button><p className="text-gray-400 text-sm mt-8">資料儲存在瀏覽器</p></div>);
-    }
-    function Create({done}){
-      const[m,setM]=useState('dinner');const[nm,setNm]=useState('');const[un,setUn]=useState('');const[l,setL]=useState(false);const[ok,setOk]=useState(null);
-      const go=e=>{e.preventDefault();if(!nm||!un)return;setL(true);
-        const p={id:uid(),code:code(),name:nm,mode:m,bal:{},t:new Date().toISOString()};
-        const h={id:uid(),name:un,host:true};
-        const pts=[h];const exs=[];
-        save('proj_'+p.id,{p,pts,exs});save('cur_proj',p.id);save('cur_uid',h.id);
-        setOk(p);setL(false);}
-      if(ok)return(<div className="text-center"><h2 className="text-xl font-bold text-green-600 mb-4">✅ 成功</h2><div className="bg-gray-100 p-4 rounded mb-4"><p className="text-gray-500 text-sm">邀請碼</p><p className="text-3xl font-bold">{ok.code}</p></div><button onClick={()=>n(ok.id)} className="block w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">進入 →</button></div>);
-      return(<form onSubmit={go}><div className="grid grid-cols-2 gap-2 mb-4"><button type="button" onClick={()=>setM('dinner')} className={`p-4 rounded-xl border-2 ${m==='dinner'?'border-orange-500 bg-orange-50':'border-gray-200'}`}><span className="text-2xl">🍜</span><br/><span className="font-bold">晚餐</span></button><button type="button" onClick={()=>setM('full')} className={`p-4 rounded-xl border-2 ${m==='full'?'border-indigo-500 bg-indigo-50':'border-gray-200'}`}><span className="text-2xl">📊</span><br/><span className="font-bold">完整</span></button></div><input value={nm} onChange={e=>setNm(e.target.value)} placeholder="專案名稱" className="w-full p-3 border rounded mb-3"/><input value={un} onChange={e=>setUn(e.target.value)} placeholder="你的暱稱" className="w-full p-3 border rounded mb-3"/><button disabled={l||!nm||!un} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold">{l?'處理中':'建立專案'}</button></form>);
-    }
-    function Join(){
-      const[c,setC]=useState('');const[u,setU]=useState('');const[l,setL]=useState(false);
-      const go=e=>{e.preventDefault();if(!c||!u)return;setL(true);
-        const all=Object.keys(localStorage).filter(k=>k.startsWith('splitease_proj_'));
-        let found=null;for(const k of all){const d=load(k.replace('splitease_',''));if(d&&d.p.code===c.toUpperCase()){found=d;break;}}
-        if(!found){alert('邀請碼錯誤');setL(false);return;}
-        const x={id:uid(),name:u,host:false};found.pts.push(x);save('proj_'+found.p.id,{...found,pts:found.pts});
-        save('cur_proj',found.p.id);save('cur_uid',x.id);n(found.p.id);setL(false);}
-      return(<form onSubmit={go}><input value={c} onChange={e=>setC(e.target.value.toUpperCase())} placeholder="輸入6位數邀請碼" className="w-full p-3 border rounded mb-3 text-center text-xl tracking-widest"/><input value={u} onChange={e=>setU(e.target.value)} placeholder="你的暱稱" className="w-full p-3 border rounded mb-3"/><button disabled={l} className="block w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">{l?'處理中':'加入'}</button></form>);
-    }
-    function Dashboard(){
-      const[pid,setPid]=useState(load('cur_proj'));const[uid2,setUid2]=useState(load('cur_uid'));const[data,setData]=useState(null);
-      useEffect(()=>{if(pid){const d=load(pid);setData(d);}},[pid]);
-      if(!data)return(<div className="text-center py-8"><p className="text-gray-400">無專案</p><button onClick={()=>n('')} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded">回首頁</button></div>);
-      const owe=data.p.bal[uid2]||0;
-      return(<div>
-        <div className="bg-orange-500 text-white p-4 rounded mb-4"><p className="text-sm opacity-80">你的欠款</p><p className="text-3xl font-bold">NT$ {owe}</p></div>
-        <div className="flex gap-2 mb-4"><button onClick={()=>n(pid+'/d')} className="flex-1 bg-orange-500 text-white py-3 rounded font-bold">🍜 新增點單</button><button onClick={()=>n(pid+'/b')} className="flex-1 bg-gray-200 py-3 rounded font-bold">📋 欠款</button></div>
-        <div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-gray-600 mb-2">點單記錄</h3>{data.exs.length===0?<p className="text-gray-400 text-center py-4">尚無記錄</p>:data.exs.map(e=><div key={e.id} className="border-b py-2"><p className="text-sm text-gray-500">{new Date(e.t).toLocaleString()}</p><p className="font-bold">NT$ {e.items.reduce((s,i)=>s+i.total,0)}</p></div>)}</div></div>);
-    }
-    function AddDinner(){
-      const[pid,setPid]=useState(load('cur_proj'));const[data,setData]=useState(null);const[df,setDf]=useState('');const[its,setIts]={};const[l,setL]=useState(false);
-      useEffect(()=>{if(pid){const d=load(pid);setData(d);d.pts.forEach(x=>its[x.id]='');setIts({...its});}},[pid]);
-      const go=async e=>{e.preventDefault();const arr=Object.entries(its).filter(([k,v])=>v).map(([k,v])=>({pid:k,a:parseFloat(v)||0})).filter(x=>x.a>0);
+    const api={
+      c:(n,m,u)=>axios.post(`${API}/api/projects`,{name:n,mode:m,hostName:u}).then(r=>r.data),
+      j:(c,u)=>axios.get(`${API}/api/projects/join/${c}`).then(r=>r.data).then(d=>axios.post(`${API}/api/projects/${d.projectId}/participants`,{name:u}).then(p=>{localStorage.setItem('p',d.projectId);localStorage.setItem('u',p.data.participantId);return d;})),
+      gp:(id)=>axios.get(`${API}/api/projects/${id}/participants`).then(r=>r.data),
+      ge:(id)=>axios.get(`${API}/api/projects/${id}/expenses`).then(r=>r.data),
+      ad:(id,df,it)=>axios.post(`${API}/api/projects/${id}/dinner-expenses`,{deliveryFee:df,items:it}).then(r=>r.data),
+      gb:(id)=>axios.get(`${API}/api/projects/${id}/balance`).then(r=>r.data),
+      st:(id)=>axios.post(`${API}/api/projects/${id}/settle`).then(r=>r.data)
+    };
+    function Home(){return(<div className="text-center py-8"><h1 className="text-4xl font-bold text-orange-500 mb-2">🍜</h1><h2 className="text-2xl font-bold text-indigo-600 mb-6">SplitEase</h2><button onClick={()=>n('c')} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold mb-3">建立新專案</button><button onClick={()=>n('join')} className="block w-full bg-gray-200 py-3 rounded-lg font-bold">加入專案</button><p className="text-gray-400 text-sm mt-8">資料儲存在雲端</p></div>);}
+    function Create({done}){const[m,setM]=useState('dinner');const[nm,setNm]=useState('');const[un,setUn]=useState('');const[l,setL]=useState(false);const[ok,setOk]=useState(null);
+      const go=async e=>{e.preventDefault();if(!nm||!un)return;setL(true);try{const p=await api.c(nm,m,un);localStorage.setItem('p',p.projectId);localStorage.setItem('u',p.participantId);setOk(p);}catch{alert('錯誤');}setL(false);}
+      if(ok)return(<div className="text-center"><h2 className="text-xl font-bold text-green-600 mb-4">✅ 成功</h2><div className="bg-gray-100 p-4 rounded mb-4"><p className="text-gray-500 text-sm">邀請碼</p><p className="text-3xl font-bold">{ok.inviteCode}</p></div><button onClick={()=>n(ok.projectId)} className="block w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">進入 →</button></div>);
+      return(<form onSubmit={go}><div className="grid grid-cols-2 gap-2 mb-4"><button type="button" onClick={()=>setM('dinner')} className={`p-4 rounded-xl border-2 ${m==='dinner'?'border-orange-500 bg-orange-50':'border-gray-200'}`}><span className="text-2xl">🍜</span><br/><span className="font-bold">晚餐</span></button><button type="button" onClick={()=>setM('full')} className={`p-4 rounded-xl border-2 ${m==='full'?'border-indigo-500 bg-indigo-50':'border-gray-200'}`}><span className="text-2xl">📊</span><br/><span className="font-bold">完整</span></button></div><input value={nm} onChange={e=>setNm(e.target.value)} placeholder="專案名稱" className="w-full p-3 border rounded mb-3"/><input value={un} onChange={e=>setUn(e.target.value)} placeholder="你的暱稱" className="w-full p-3 border rounded mb-3"/><button disabled={l||!nm||!un} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold">{l?'處理中':'建立專案'}</button></form>);}
+    function Join(){const[c,setC]=useState('');const[u,setU]=useState('');const[l,setL]=useState(false);
+      const go=async e=>{e.preventDefault();if(!c||!u)return;setL(true);try{await api.j(c.toUpperCase(),u);n(localStorage.getItem('p'));}catch{alert('邀請碼錯誤');}setL(false);}
+      return(<form onSubmit={go}><input value={c} onChange={e=>setC(e.target.value.toUpperCase())} placeholder="輸入6位數邀請碼" className="w-full p-3 border rounded mb-3 text-center text-xl tracking-widest"/><input value={u} onChange={e=>setU(e.target.value)} placeholder="你的暱稱" className="w-full p-3 border rounded mb-3"/><button disabled={l} className="block w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">{l?'處理中':'加入'}</button></form>);}
+    function Dashboard(){const[pts,setPts]=useState([]);const[exs,setExs]=useState([]);const[bal,setBal]=useState(null);const[l,setL]=useState(true);const pid=localStorage.getItem('p');const uid=localStorage.getItem('u');
+      useEffect(()=>{if(pid){api.gp(pid).then(setPts);api.ge(pid).then(setExs);api.gb(pid).then(r=>{setBal(r);setL(false);}).catch(()=>setL(false));}},[pid]);
+      const owe=bal?.balances?.find(x=>x.participantId===uid)?.balance||0;
+      return(<div>{l?<div className="text-center py-8">載入中...</div>:<div><div className="bg-orange-500 text-white p-4 rounded mb-4"><p className="text-sm opacity-80">你的欠款</p><p className="text-3xl font-bold">NT$ {owe}</p></div><div className="flex gap-2 mb-4"><button onClick={()=>n(pid+'/d')} className="flex-1 bg-orange-500 text-white py-3 rounded font-bold">🍜 新增點單</button><button onClick={()=>n(pid+'/b')} className="flex-1 bg-gray-200 py-3 rounded font-bold">📋 欠款</button></div><div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-gray-600 mb-2">點單記錄</h3>{exs.length===0?<p className="text-gray-400 text-center py-4">尚無記錄</p>:exs.map(e=><div key={e.expenseId} className="border-b py-2"><p className="text-sm text-gray-500">{new Date(e.createdAt).toLocaleString()}</p><p className="font-bold">NT$ {e.items?.reduce((s,i)=>s+i.totalOwed,0)||0}</p></div>)}</div></div>}</div>);}
+    function AddDinner(){const[pts,setPts]=useState([]);const[df,setDf]=useState('');const[its,setIts]={};const[l,setL]=useState(false);const pid=localStorage.getItem('p');
+      useEffect(()=>{if(pid){api.gp(pid).then(p=>{setPts(p);p.forEach(x=>its[x.participantId]='');setIts({...its});});}},[pid]);
+      const go=async e=>{e.preventDefault();const arr=Object.entries(its).filter(([k,v])=>v).map(([k,v])=>({participantId:k,amount:parseFloat(v)||0})).filter(x=>x.amount>0);
         if(arr.length===0)return alert('請輸入金額');setL(true);
-        const d=data;const per=(parseFloat(df)||0)/(d.pts.length||1);
-        const ex={id:uid(),items:arr.map(i=>({pid:i.pid,amt:i.a,total:i.a+per})),t:new Date().toISOString()};
-        arr.forEach(i=>{d.p.bal[i.pid]=(d.p.bal[i.pid]||0)+i.a+per});
-        d.exs.push(ex);save('proj_'+pid,{...d});alert('✅ 已記錄');n(pid);setL(false);}
-      const per=(parseFloat(df)||0)/(data?.pts.length||1);
-      return(<form onSubmit={go}><div className="bg-white p-4 rounded mb-4"><label className="block font-bold mb-2">🚴 外送費（均分）</label><input type="number" value={df} onChange={e=>setDf(e.target.value)} className="w-full p-3 border rounded"/><p className="text-sm text-gray-500 mt-1">NT$ {per}/人</p></div><div className="bg-white p-4 rounded mb-4"><label className="block font-bold mb-2">🍽️ 點餐金額</label>{data?.pts.map(p=><div key={p.id} className="flex items-center mb-3"><span className="flex-1 font-medium">{p.name} {p.host&&'👑'}</span><input type="number" value={its[p.id]} onChange={e=>{its[p.id]=e.target.value;setIts({...its});}} className="w-28 p-2 border rounded text-right" placeholder="0"/></div>)}</div><button disabled={l} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold">{l?'儲存中':'✅ 確認記錄'}</button></form>);
-    }
-    function Balance(){
-      const[pid,setPid]=useState(load('cur_proj'));const[data,setData]=useState(null);const[l,setL]=useState(true);const uid2=load('cur_uid');
-      useEffect(()=>{if(pid){const d=load(pid);setData(d);setL(false);}},[pid]);
-      const go=async()=>{if(!confirm('確定結清？會清除所有記錄'))return;setL(true);data.p.bal={};data.exs=[];save('proj_'+pid,{...data});alert('✅ 已結清');n(pid);}
+        try{await api.ad(pid,df,arr);alert('✅ 已記錄');n(pid);}catch{alert('錯誤');}setL(false);}
+      const per=(parseFloat(df)||0)/(pts.length||1);
+      return(<form onSubmit={go}><div className="bg-white p-4 rounded mb-4"><label className="block font-bold mb-2">🚴 外送費（均分）</label><input type="number" value={df} onChange={e=>setDf(e.target.value)} className="w-full p-3 border rounded"/><p className="text-sm text-gray-500 mt-1">NT$ {per}/人</p></div><div className="bg-white p-4 rounded mb-4"><label className="block font-bold mb-2">🍽️ 點餐金額</label>{pts.map(p=><div key={p.participantId} className="flex items-center mb-3"><span className="flex-1 font-medium">{p.name} {p.isHost&&'👑'}</span><input type="number" value={its[p.participantId]} onChange={e=>{its[p.participantId]=e.target.value;setIts({...its});}} className="w-28 p-2 border rounded text-right" placeholder="0"/></div>)}</div><button disabled={l} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold">{l?'儲存中':'✅ 確認記錄'}</button></form>);}
+    function Balance(){const[bal,setBal]=useState(null);const[l,setL]=useState(true);const uid=localStorage.getItem('u');const pid=localStorage.getItem('p');
+      useEffect(()=>{if(pid){api.gb(pid).then(r=>{setBal(r);setL(false);});}},[pid]);
+      const go=async()=>{if(!confirm('確定結清？會清除所有記錄'))return;setL(true);try{await api.st(pid);alert('✅ 已結清');n(pid);}catch{alert('錯誤');}setL(false);}
       if(l)return(<div className="text-center py-8">載入中...</div>);
-      const host=data.pts.find(x=>x.host);const mems=data.pts.filter(x=>!x.host);
-      const tot=data.exs.reduce((s,e)=>s+e.items.reduce((a,i)=>a+i.total,0),0);
-      return(<div><div className="bg-orange-50 p-4 rounded mb-4"><p className="text-orange-600 text-sm">累積總消費</p><p className="text-2xl font-bold text-orange-600">NT$ {tot}</p></div><div className="bg-white p-4 rounded mb-4">{host&&<div className="flex justify-between py-2 border-b"><span className="font-medium">{host.name} 👑</span><span className="text-green-600">+NT$ {(host.id&&data.p.bal[host.id])||0}</span></div>}{mems.map(m=><div key={m.id} className={`flex justify-between py-2 ${(data.p.bal[m.id]||0)>0?'bg-red-50 -mx-2 px-2 rounded':''}`}><span className={m.id===uid2?'text-orange-600 font-bold':''}>{m.name} {m.id===uid2&&'(你)'}</span><span className={(data.p.bal[m.id]||0)>0?'text-red-600':'text-gray-400'}>NT$ {(data.p.bal[m.id]||0)>0?'-':''}{data.p.bal[m.id]||0}</span></div>)}</div><button onClick={go} className="block w-full bg-green-500 text-white py-3 rounded-lg font-bold">💚 一鍵結清</button></div>);
-    }
+      const host=bal?.balances?.find(x=>x.isHost);const mems=bal?.balances?.filter(x=>!x.isHost)||[];
+      return(<div><div className="bg-orange-50 p-4 rounded mb-4"><p className="text-orange-600 text-sm">累積總消費</p><p className="text-2xl font-bold text-orange-600">NT$ {bal?.totalExpenses||0}</p></div><div className="bg-white p-4 rounded mb-4">{host&&<div className="flex justify-between py-2 border-b"><span className="font-medium">{host.name} 👑</span><span className="text-green-600">+NT$ {host.totalOwed}</span></div>}{mems.map(m=><div key={m.participantId} className={`flex justify-between py-2 ${m.balance>0?'bg-red-50 -mx-2 px-2 rounded':''}`}><span className={m.participantId===uid?'text-orange-600 font-bold':''}>{m.name} {m.participantId===uid&&'(你)'}</span><span className={m.balance>0?'text-red-600':'text-gray-400'}>NT$ {m.balance>0?'-':''}{Math.abs(m.balance)}</span></div>)}</div><button onClick={go} className="block w-full bg-green-500 text-white py-3 rounded-lg font-bold">💚 一鍵結清</button></div>);}
     let cur='';const n=(p)=>{cur=p;r();};
-    function App(){const pid=load('cur_proj');if(!pid&&!cur)return<Home/>;if(cur==='c')return<Create done={n}/>;if(cur==='join')return<Join/>;if(cur&&!cur.startsWith('/'))return<Dashboard/>;if(cur){const id=cur.split('/')[0];if(cur.includes('/d'))return<AddDinner/>;if(cur.includes('/b'))return<Balance/>;return<Dashboard/>;}return<Home/>;}
+    function App(){const pid=localStorage.getItem('p');if(!pid&&!cur)return<Home/>;if(cur==='c')return<Create done={n}/>;if(cur==='join')return<Join/>;if(cur&&!cur.startsWith('/'))return<Dashboard/>;if(cur){const id=cur.split('/')[0];if(cur.includes('/d'))return<AddDinner/>;if(cur.includes('/b'))return<Balance/>;return<Dashboard/>;}return<Home/>;}
     function r(){ReactDOM.render(<App/>,document.getElementById('app'));}r();
   </script>
 </body>

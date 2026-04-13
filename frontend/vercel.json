@@ -1,10 +1,8 @@
 {
-  "buildCommand": "echo 'No build needed'",
-  "installCommand": "npm install express cors uuid @babel/core @babel/standalone",
   "framework": "static",
+  "buildCommand": "echo 'No build needed'",
+  "installCommand": "npm install express cors uuid @vercel/node",
   "routes": [
-    { "src": "/api/projects", "dest": "/api/index.js" },
-    { "src": "/api/projects/(.*)", "dest": "/api/index.js" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "/api/(.*)", "dest": "/api/index.js" }
   ]
 }
