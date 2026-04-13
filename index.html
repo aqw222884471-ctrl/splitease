@@ -2,44 +2,31 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SplitEase - 分帳工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <title>SplitEase - 分帳</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
-    .container{max-width:480px;margin:0 auto;padding:16px}
-    .btn{display:block;width:100%;padding:14px;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer}
-    .btn-primary{background:#6366f1;color:white}
-    .btn-primary:disabled{opacity:0.5;cursor:not-allowed}
-    .btn-success{background:#22c55e;color:white}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;min-height:100vh;touch-action:manipulation}
+    .container{max-width:420px;margin:0 auto;padding:20px;padding-bottom:100px}
+    .title{font-size:28px;font-weight:700;color:#1e293b}
+    .card{background:white;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+    .btn{width:100%;padding:16px;border:none;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;touch-action:manipulation}
+    .btn-main{background:#6366f1;color:white;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:380px;box-shadow:0 4px 12px rgba(99,102,241,0.4)}
+    .btn-main:active{transform:translateX(-50%) scale(0.98)}
+    .btn-sec{background:#e2e8f0;color:#475569}
     .btn-danger{background:#ef4444;color:white}
-    .btn-secondary{background:#e5e7eb;color:#374151}
-    .btn-sm{width:auto;padding:10px 16px}
-    .card{background:white;padding:16px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-    .input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;margin-bottom:12px}
+    .input{width:100%;padding:16px;border:2px solid #e2e8f0;border-radius:12px;font-size:18px;margin-bottom:16px}
     .input:focus{outline:none;border-color:#6366f1}
-    .flex{display:flex}
-    .flex-1{flex:1}
-    .gap-2{gap:8px}
-    .mb-2{margin-bottom:8px}
-    .mb-4{margin-bottom:16px}
-    .mt-2{margin-top:8px}
-    .text-center{text-align:center}
-    .text-sm{font-size:14px}
-    .text-gray{color:#6b7280}
-    .font-bold{font-weight:bold}
-    .title{font-size:24px}
-    .aa-bg{background:#fef2f2;border-left:4px solid #ef4444}
-    .ab-bg{background:#f0fdf4;border-left:4px solid #22c55e}
-    .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;color:white}
-    .aa-badge{background:#ef4444}
-    .ab-badge{background:#22c55e}
-    .tag{display:inline-block;background:#f3f4f6;padding:6px 10px;border-radius:6px;font-size:14px;margin-right:6px;margin-bottom:6px}
-    .tag button{margin-left:6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px}
-    .item{border-bottom:1px solid #e5e7eb;padding:12px 0}
-    .item:last-child{border-bottom:none}
-    .positive{color:#ef4444}
-    .negative{color:#22c55e}
+    .tag{display:inline-block;background:#f1f5f9;padding:12px 16px;border-radius:10px;margin:4px;font-size:16px}
+    .tag.active{background:#6366f1;color:white}
+    .item{border-bottom:1px solid #f1f5f9;padding:16px 0}
+    .positive{color:#ef4444;font-weight:600}
+    .negative{color:#22c55e;font-weight:600}
+    .label{font-size:14px;color:#64748b;margin-bottom:8px;display:block}
+    .big-btn{font-size:22px;padding:24px}
+    .sub{font-size:14px;color:#94a3b8}
+    .money{font-size:32px;font-weight:700;color:#1e293b}
+    .result{background:#f8fafc;border-radius:12px;padding:16px;margin-top:16px}
   </style>
 </head>
 <body>
@@ -49,8 +36,8 @@
     const load=k=>JSON.parse(localStorage.getItem('splitease_'+k)||'null');
     const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
     
-    let page='home',project=null,projName='',mode='AA',newUser='',users=[],expenses=[];
-    let desc='',amount='',payerName='',addUserName='';
+    let step='home',project=null,users=[],exps=[],mode='AA';
+    let amount='',payer='',desc='',tempUser='',addName='';
     
     function getProjects(){
       return Object.keys(localStorage).filter(k=>k.startsWith('splitease_proj_')).map(k=>load(k.replace('splitease_',''))).filter(p=>p).sort((a,b)=>new Date(b.t)-new Date(a.t));
@@ -58,163 +45,205 @@
     
     function render(){
       const app=document.getElementById('app');
-      const ps=getProjects();
+      const list=getProjects();
       
-      if(page==='home'){
+      if(step==='home'){
         app.innerHTML=`
-          <div class="text-center" style="padding:40px 0">
-            <h1 class="title" style="color:#6366f1;margin-bottom:8px">SplitEase</h1>
-            <p class="text-sm text-gray">簡單分帳</p>
+          <div style="text-align:center;padding:40px 0">
+            <h1 style="font-size:32px;font-weight:700;color:#6366f1">SplitEase</h1>
+            <p class="sub">簡單分帳</p>
           </div>
-          <button class="btn btn-primary mb-4" onclick="goNew()">＋ 新增專案</button>
-          ${ps.length===0?'<p class="text-center text-gray" style="padding:40px 0">尚無專案</p>':
-          ps.map(p=>`<div class="card ${p.mode==='AA'?'aa-bg':'ab-bg'} mb-2" style="cursor:pointer" onclick="openProj('${p.id}')">
-            <div class="flex justify-between items-center">
-              <span class="font-bold" style="font-size:18px">${p.name}</span>
-              <span class="badge ${p.mode==='AA'?'aa-badge':'ab-badge'}">${p.mode}</span>
+          ${list.length?list.map(p=>`<div class="card" style="cursor:pointer" onclick="openProj('${p.id}')">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:20px;font-weight:600">${p.name}</span>
+              <span style="background:${p.mode==='AA'?'#fee2e2':'#dcfce7'};color:${p.mode==='AA'?'#ef4444':'#22c55e'};padding:4px 12px;border-radius:8px;font-size:14px;font-weight:600">${p.mode}</span>
             </div>
-            <p class="text-sm text-gray mt-2">${p.users.length} 人</p>
-          </div>`).join('')}
+            <p class="sub" style="margin-top:8px">${p.users.length}人 · NT$ ${p.exs.reduce((s,e)=>s+e.amount,0)}</p>
+          </div>`).join(''):''}
+          <button class="btn btn-sec" style="margin-top:20px" onclick="goNew()">＋ 新增專案</button>
         `;
         return;
       }
       
-      if(page==='new'){
+      if(step==='new'){
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="goHome()">← 返回</button>
-          <h2 class="title mb-4">新增專案</h2>
-          <input class="input" placeholder="專案名稱" id="projName" value="${projName}" oninput="projName=this.value"/>
+          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goHome()">← 返回</button>
+          <h2 class="title" style="margin-bottom:24px">新增專案</h2>
           
-          <div class="flex gap-2 mb-4">
-            <button class="btn ${mode==='AA'?'btn-danger':''}" style="${mode==='AA'?'border:2px solid #ef4444':'border:2px solid #e5e7eb'}" onclick="toggleMode('AA')">AA 平均分攤</button>
-            <button class="btn ${mode==='AB'?'btn-success':''}" style="${mode==='AB'?'border:2px solid #22c55e':'border:2px solid #e5e7eb'}" onclick="toggleMode('AB')">AB 各付各的</button>
-          </div>
+          <label class="label">專案名稱</label>
+          <input class="input" placeholder="例如：今晚晚餐" id="nameInput" style="font-size:20px"/>
           
-          <div class="card mb-4">
-            <p class="font-bold text-sm mb-2">使用者</p>
-            <div class="flex gap-2 mb-2">
-              <input class="input flex-1" placeholder="輸入名稱" id="newUserInput" value="${newUser}" oninput="newUser=this.value"/>
-              <button class="btn btn-secondary btn-sm" onclick="addNewUser()">＋</button>
+          <label class="label">分帳方式</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+            <div class="card" style="cursor:pointer;text-align:center;${mode==='AA'?'border:2px solid #6366f1':''}" onclick="mode='AA';render()">
+              <div style="font-size:24px;margin-bottom:8px">✂️</div>
+              <div style="font-weight:600">大家平分</div>
+              <p class="sub">一人先付錢，其他人平均攤</p>
             </div>
-            <div>${users.map(u=>`<span class="tag">${u.name}<button onclick="removeUser('${u.id}')">×</button></span>`).join('')}</div>
+            <div class="card" style="cursor:pointer;text-align:center;${mode==='AB'?'border:2px solid #6366f1':''}" onclick="mode='AB';render()">
+              <div style="font-size:24px;margin-bottom:8px">📝</div>
+              <div style="font-weight:600">各付各的</div>
+              <p class="sub">每個人付自己的份</p>
+            </div>
           </div>
           
-          <button class="btn btn-primary" id="createBtn" onclick="createProject()" ${!projName?'disabled':''}>建立專案</button>
+          <label class="label">成員（先加幾個人）</label>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input class="input flex-1" placeholder="輸入名字" id="userInput" style="margin:0" oninput="tempUser=this.value"/>
+            <button class="btn" style="width:60px;background:#e2e8f0" onclick="addUser()">+</button>
+          </div>
+          <div style="margin-bottom:24px">${users.map(u=>`<span class="tag" style="cursor:pointer" onclick="removeUser('${u.id}')">${u.name} ×</span>`).join('')}</div>
         `;
+        app.innerHTML+=`<button class="btn btn-main" id="createBtn" onclick="createProject()" disabled>建立專案</button>`;
+        document.getElementById('nameInput').addEventListener('input',function(){
+          const btn=document.getElementById('createBtn');
+          btn.disabled=!this.value;
+          btn.style.background=this.value?'#6366f1':'#94a3b8';
+        });
         return;
       }
       
-      if(page==='project'){
-        const total=expenses.reduce((s,e)=>s+e.amount,0);
+      if(step==='project'){
+        const total=exps.reduce((s,e)=>s+e.amount,0);
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="goHome()">← 返回</button>
-          <div class="card ${mode==='AA'?'aa-bg':'ab-bg'} mb-4">
-            <div class="flex justify-between items-center">
-              <span class="title">${project?.name||''}</span>
-              <span class="badge ${mode==='AA'?'aa-badge':'ab-badge'}">${mode}</span>
-            </div>
-            <p class="text-sm text-gray mt-2">${users.length} 人</p>
-          </div>
+          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goHome()">← 返回</button>
           
-          <div class="flex gap-2 mb-4">
-            <button class="btn btn-primary flex-1" onclick="goAdd()">＋ 新增消費</button>
-            <button class="btn btn-secondary flex-1" onclick="goUsers()">👤 成員</button>
-            <button class="btn btn-secondary flex-1" onclick="goBalance()">📊 結欠</button>
+          <div class="card" style="background:${mode==='AA'?'#fef2f2':'#f0fdf4'};border-left:4px solid ${mode==='AA'?'#ef4444':'#22c55e'}">
+            <div style="font-size:24px;font-weight:700">${project?.name||''}</div>
+            <p class="sub">${users.length}人 · ${mode}</p>
           </div>
           
           <div class="card">
-            <h3 class="font-bold text-gray mb-2">消費紀錄</h3>
-            ${expenses.length===0?'<p class="text-center text-gray" style="padding:20px">尚無消費</p>':
-            expenses.slice().reverse().map(e=>`<div class="item">
-              <div class="flex justify-between"><span>${e.desc}</span><span class="font-bold">NT$ ${e.amount}</span></div>
-              <p class="text-sm text-gray">${e.payer?e.payer+' 付':'平均分攤'} • ${new Date(e.t).toLocaleDateString()}</p>
-            </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <span style="font-weight:600;font-size:18px">消費紀錄</span>
+              <span class="money">NT$ ${total}</span>
+            </div>
+            ${exps.length?exps.slice().reverse().map(e=>`<div class="item">
+              <div style="display:flex;justify-content:space-between">
+                <span>${e.desc}</span>
+                <span style="font-weight:600">${e.amount}</span>
+              </div>
+              <p class="sub">${e.payer||'大家分'} · ${new Date(e.t).toLocaleDateString()}</p>
+            </div>`).join(''):'<p class="sub" style="text-align:center;padding:20px">尚無消費</p>'}
           </div>
         `;
+        
+        if(mode==='AA'){
+          app.innerHTML+=`<button class="btn btn-main" onclick="goAddAA()">＋ 新增一筆</button>`;
+        }else{
+          app.innerHTML+=`<button class="btn btn-main" onclick="goAddAB()">＋ 新增一筆</button>`;
+        }
         return;
       }
       
-      if(page==='add'){
+      if(step==='addAA'){
+        const payerArr=users.map(u=>u.id);
+        const currentPayer=payer;
+        
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="goProject()">← 返回</button>
-          <h2 class="title mb-4">新增消費</h2>
-          <input class="input" placeholder="消費項目" id="desc" value="${desc}" oninput="desc=this.value"/>
-          <input class="input" placeholder="金額" type="number" id="amount" value="${amount}" oninput="amount=this.value"/>
-          ${mode==='AA'?'<div class="mb-4"><label class="text-sm"><input type="checkbox" id="hasPayer" onchange="togglePayer()"/> 指定付款人</label></div>':''}
-          ${payerName!==''?'<input class="input mb-4" placeholder="輸入付款人姓名" id="payerInput" value="${payerName}" oninput="payerName=this.value"/>':''}
-          <button class="btn btn-primary" onclick="saveExpense()" ${!desc||!amount?'disabled':''}>確認</button>
-        `;
-        return;
-      }
-      
-      if(page==='users'){
-        app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="goProject()">← 返回</button>
-          <h2 class="title mb-4">管理成員</h2>
-          <div class="flex gap-2 mb-4">
-            <input class="input flex-1" placeholder="新成員名稱" id="addUserName" value="${addUserName}" oninput="addUserName=this.value"/>
-            <button class="btn btn-secondary btn-sm" onclick="addNewMember()">＋</button>
+          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
+          <h2 class="title" style="margin-bottom:24px">新增一筆</h2>
+          
+          <label class="label"> ${mode==='AA'?'誰付錢':'誰吃了'}</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+            ${users.map(u=>`<div class="tag ${payer===u.id?'active':''}" style="cursor:pointer;min-width:80px;text-align:center" onclick="payer='${u.id}';render()">${u.name}</div>`).join('')}
           </div>
-          <div class="card">${users.map(u=>`<div class="flex justify-between item">
-            <span>${u.name}</span>
-            <button style="border:none;background:none;color:#ef4444;cursor:pointer" onclick="deleteUser('${u.id}')">刪除</button>
-          </div>`).join('')}</div>
+          
+          <label class="label">消費項目</label>
+          <input class="input" placeholder="例如：晚餐" id="descInput"/>
+          
+          <label class="label">多少錢？</label>
+          <input class="input" placeholder="0" type="number" id="amountInput" style="font-size:32px"/>
         `;
+        
+        const paid=users.reduce((s,u)=>s+(u.id===payer?parseFloat(amount)||0:0),0);
+        const split=users.length?(parseFloat(amount)||0)/users.length:0;
+        
+        if(amount){
+          app.innerHTML+=`
+            <div class="result">
+              <p class="sub">每人應付NT$ ${split.toFixed(0)}，除 ${payer?users.find(u=>u.id===payer)?.name:'?'} 外的其他人各給 NT$ ${split.toFixed(0)}</p>
+            </div>
+          `;
+        }
+        
+        app.innerHTML+=`<button class="btn btn-main" onclick="saveAA()">儲存</button>`;
+        document.getElementById('amountInput').addEventListener('input',function(){
+          amount=this.value;render();
+        });
         return;
       }
       
-      if(page==='balance'){
+      if(step==='addAB'){
+        app.innerHTML=`
+          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
+          <h2 class="title" style="margin-bottom:24px">新增一筆</h2>
+          
+          <label class="label">誰吃了？</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+            ${users.map(u=>`<span class="tag" style="cursor:pointer" onclick="payer='${u.id}';render()">${u.name}</span>`).join('')}
+          </div>
+          
+          <label class="label">吃了什麼？</label>
+          <input class="input" placeholder="例如：牛肉麵" id="descInput"/>
+          
+          <label class="label">多少錢？</label>
+          <input class="input" placeholder="0" type="number" id="amountInput"/>
+        `;
+        app.innerHTML+=`<button class="btn btn-main" onclick="saveAB()">儲存</button>`;
+        return;
+      }
+      
+      if(step==='balance'){
         const bal={};
         users.forEach(u=>bal[u.id]=0);
-        expenses.forEach(e=>{
+        exps.forEach(e=>{
           if(mode==='AA'){
             const split=e.amount/(users.length||1);
             users.forEach(u=>bal[u.id]+=split);
             if(e.payer){
-              const p=users.find(u=>u.name===e.payer);
+              const p=users.find(u=>u.id===e.payer);
               if(p)bal[p.id]-=e.amount;
             }
           }
         });
-        const total=expenses.reduce((s,e)=>s+e.amount,0);
         
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="goProject()">← 返回</button>
-          <h2 class="title mb-4">結欠明細</h2>
-          <div class="card mb-4"><p class="text-sm text-gray">總消費</p><p class="title">NT$ ${total}</p></div>
-          <div class="card mb-4">${users.map(u=>{const amt=bal[u.id]||0;return`<div class="item ${amt>0.01?'background:#fef2f2;margin:0 -16px;padding:12px 16px':amt<-0.01?'background:#f0fdf4;margin:0 -16px;padding:12px 16px':''}">
-            <span>${u.name}</span>
-            <span class="${amt>0?'positive':amt<0?'negative':''}" style="font-weight:bold">${amt>0?'+':''}${amt.toFixed(0)}</span>
-          </div>`})}</div>
-          <button class="btn btn-danger" onclick="settleAll()">💚 一鍵結清</button>
+          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
+          <h2 class="title" style="margin-bottom:24px">結欠</h2>
+          
+          <div class="card" style="text-align:center">
+            <p class="sub">總金額</p>
+            <p class="money">NT$ ${exps.reduce((s,e)=>s+e.amount,0)}</p>
+          </div>
+          
+          <div class="card">
+            ${users.map(u=>{const amt=bal[u.id]||0;return`<div style="display:flex;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f1f5f9">
+              <span style="font-size:18px;font-weight:500">${u.name}</span>
+              <span class="${amt>0?'positive':amt<0?'negative':''}">${amt>0?'+':''}${amt.toFixed(0)}</span>
+            </div>`})}
+          </div>
         `;
+        
+        app.innerHTML+=`<button class="btn btn-danger" style="margin-top:20px" onclick="settle()">💚 一鍵結清</button><button class="btn btn-sec" style="margin-top:12px" onclick="deleteProj()">🗑️ 刪除專案</button>`;
+        app.innerHTML+='<div style="height:80px"></div>';
+        return;
       }
     }
     
-    function goHome(){page='home';project=null;render();}
-    function goNew(){page='new';projName='';mode='AA';newUser='';users=[];render();}
-    function goProject(){page='project';render();}
-    function goAdd(){page='add';desc='';amount='';payerName='';render();}
-    function goUsers(){page='users';addUserName='';render();}
-    function goBalance(){page='balance';render();}
+    function goHome(){step='home';render();}
+    function goNew(){step='new';users=[];mode='AA';tempUser='';render();}
+    function goProject(){step='project';render();}
+    function goAddAA(){step='addAA';amount='';payer='';desc='';render();}
+    function goAddAB(){step='addAB';amount='';payer='';desc='';render();}
+    function goBalance(){step='balance';render();}
     
-    function toggleMode(m){mode=m;render();}
-    function togglePayer(){payerName=document.getElementById('hasPayer').checked?'1':'';render();}
-    
-    function openProj(id){
-      project=load(id);
-      users=project.users;
-      expenses=project.exs;
-      mode=project.mode;
-      page='project';
+    function addUser(){
+      if(!tempUser)return;
+      users.push({id:uid(),name:tempUser});
+      tempUser='';
       render();
-    }
-    
-    function addNewUser(){
-      if(!newUser)return;
-      users.push({id:uid(),name:newUser});
-      newUser='';
-      render();
+      document.getElementById('userInput').value='';
     }
     
     function removeUser(id){
@@ -223,46 +252,55 @@
     }
     
     function createProject(){
-      if(!projName)return;
-      const proj={id:uid(),name:projName,mode,users,exs:[],t:new Date().toISOString()};
+      const name=document.getElementById('nameInput').value;
+      if(!name)return;
+      const proj={id:uid(),name,mode,users,exs:[],t:new Date().toISOString()};
       save('proj_'+proj.id,proj);
       project=proj;
-      page='project';
+      step='project';
       render();
     }
     
-    function addNewMember(){
-      if(!addUserName)return;
-      users.push({id:uid(),name:addUserName});
-      save('proj_'+project.id,{...project,users});
-      project.users=users;
-      addUserName='';
+    function openProj(id){
+      project=load(id);
+      users=project.users;
+      exps=project.exs;
+      mode=project.mode;
+      step='project';
       render();
     }
     
-    function deleteUser(id){
-      users=users.filter(u=>u.id!==id);
-      project.users=users;
-      save('proj_'+project.id,project);
-      render();
-    }
-    
-    function saveExpense(){
+    function saveAA(){
+      const desc=document.getElementById('descInput').value;
+      const amount=document.getElementById('amountInput').value;
       if(!desc||!amount)return;
-      const p=document.getElementById('hasPayer');
-      const payer=(p&&p.checked)?payerName:null;
-      expenses.push({id:uid(),desc,amount:parseFloat(amount),payer,t:new Date().toISOString()});
-      project.exs=expenses;
+      exps.push({id:uid(),desc,amount:parseFloat(amount),payer,t:new Date().toISOString()});
+      project.exs=exps;
       save('proj_'+project.id,project);
-      page='project';
-      render();
+      goProject();
     }
     
-    function settleAll(){
-      if(!confirm('確定結清？會清除所有消費紀錄'))return;
-      expenses=[];
+    function saveAB(){
+      const desc=document.getElementById('descInput').value;
+      const amount=document.getElementById('amountInput').value;
+      if(!desc||!amount||!payer)return;
+      exps.push({id:uid(),desc,amount:parseFloat(amount),payer,t:new Date().toISOString()});
+      project.exs=exps;
+      save('proj_'+project.id,project);
+      goProject();
+    }
+    
+    function settle(){
+      if(!confirm('確定結清？'))return;
+      exps=[];
       project.exs=[];
       save('proj_'+project.id,project);
+      goHome();
+    }
+    
+    function deleteProj(){
+      if(!confirm('確定刪除專案？所有資料會不見'))return;
+      localStorage.removeItem('proj_'+project.id);
       goHome();
     }
     
