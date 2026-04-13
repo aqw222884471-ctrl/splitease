@@ -35,4 +35,4 @@ npm run dev
 
 ## 📄 規格文件
 
-請參考 `SPEC.md`
+請參考 `SPEC.md`<!-- deploy trigger -->
