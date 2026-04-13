@@ -8,14 +8,15 @@
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
     .container{max-width:480px;margin:0 auto;padding:16px}
-    .btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer}
+    .btn{display:block;width:100%;padding:14px;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer}
     .btn-primary{background:#6366f1;color:white}
-    .btn-primary:disabled{opacity:0.5}
+    .btn-primary:disabled{opacity:0.5;cursor:not-allowed}
     .btn-success{background:#22c55e;color:white}
     .btn-danger{background:#ef4444;color:white}
     .btn-secondary{background:#e5e7eb;color:#374151}
+    .btn-sm{width:auto;padding:10px 16px}
     .card{background:white;padding:16px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-    .input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:16px}
+    .input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;margin-bottom:12px}
     .input:focus{outline:none;border-color:#6366f1}
     .flex{display:flex}
     .flex-1{flex:1}
@@ -30,11 +31,13 @@
     .title{font-size:24px}
     .aa-bg{background:#fef2f2;border-left:4px solid #ef4444}
     .ab-bg{background:#f0fdf4;border-left:4px solid #22c55e}
-    .aa-badge{background:#ef4444;color:white;padding:2px 8px;border-radius:4px;font-size:12px}
-    .ab-badge{background:#22c55e;color:white;padding:2px 8px;border-radius:4px;font-size:12px}
-    .user-tag{background:#f3f4f6;padding:4px 8px;border-radius:4px;font-size:14px;margin-right:4px;margin-bottom:4px;display:inline-block}
-    .expense{border-bottom:1px solid #e5e7eb;padding:12px 0}
-    .expense:last-child{border-bottom:none}
+    .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;color:white}
+    .aa-badge{background:#ef4444}
+    .ab-badge{background:#22c55e}
+    .tag{display:inline-block;background:#f3f4f6;padding:6px 10px;border-radius:6px;font-size:14px;margin-right:6px;margin-bottom:6px}
+    .tag button{margin-left:6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px}
+    .item{border-bottom:1px solid #e5e7eb;padding:12px 0}
+    .item:last-child{border-bottom:none}
     .positive{color:#ef4444}
     .negative{color:#22c55e}
   </style>
@@ -42,33 +45,33 @@
 <body>
   <div id="app" class="container"></div>
   <script>
-    // 數據工具
     const uid=()=>Math.random().toString(36).substr(2,9);
     const load=k=>JSON.parse(localStorage.getItem('splitease_'+k)||'null');
     const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
+    
+    let page='home',project=null,projName='',mode='AA',newUser='',users=[],expenses=[];
+    let desc='',amount='',payerName='',addUserName='';
     
     function getProjects(){
       return Object.keys(localStorage).filter(k=>k.startsWith('splitease_proj_')).map(k=>load(k.replace('splitease_',''))).filter(p=>p).sort((a,b)=>new Date(b.t)-new Date(a.t));
     }
     
-    // 渲染
     function render(){
       const app=document.getElementById('app');
-      const projects=getProjects();
+      const ps=getProjects();
       
-      // 首頁
-      if(state.page==='home'){
+      if(page==='home'){
         app.innerHTML=`
           <div class="text-center" style="padding:40px 0">
             <h1 class="title" style="color:#6366f1;margin-bottom:8px">SplitEase</h1>
             <p class="text-sm text-gray">簡單分帳</p>
           </div>
-          <button class="btn btn-primary mb-4" onclick="setPage('new')">＋ 新增專案</button>
-          ${projects.length===0?'<p class="text-center text-gray" style="padding:40px 0">尚無專案</p>':
-          projects.map(p=>`<div class="card ${p.mode==='AA'?'aa-bg':'ab-bg'} mb-2" style="cursor:pointer" onclick="openProject('${p.id}')">
+          <button class="btn btn-primary mb-4" onclick="goNew()">＋ 新增專案</button>
+          ${ps.length===0?'<p class="text-center text-gray" style="padding:40px 0">尚無專案</p>':
+          ps.map(p=>`<div class="card ${p.mode==='AA'?'aa-bg':'ab-bg'} mb-2" style="cursor:pointer" onclick="openProj('${p.id}')">
             <div class="flex justify-between items-center">
-              <span class="font-bold">${p.name}</span>
-              <span class="${p.mode==='AA'?'aa-badge':'ab-badge'}">${p.mode}</span>
+              <span class="font-bold" style="font-size:18px">${p.name}</span>
+              <span class="badge ${p.mode==='AA'?'aa-badge':'ab-badge'}">${p.mode}</span>
             </div>
             <p class="text-sm text-gray mt-2">${p.users.length} 人</p>
           </div>`).join('')}
@@ -76,62 +79,53 @@
         return;
       }
       
-      // 新增專案
-      if(state.page==='new'){
-        const projName=state.projName||'';
-        const mode=state.mode||'AA';
-        const newUser=state.newUser||'';
-        const users=state.users||[];
-        
+      if(page==='new'){
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="setPage('home')">← 返回</button>
+          <button class="text-sm text-gray mb-2" onclick="goHome()">← 返回</button>
           <h2 class="title mb-4">新增專案</h2>
-          <input class="input mb-2" placeholder="專案名稱" value="${projName}" oninput="state.projName=this.value;render()"/>
+          <input class="input" placeholder="專案名稱" id="projName" value="${projName}" oninput="projName=this.value"/>
           
           <div class="flex gap-2 mb-4">
-            <button class="btn ${mode==='AA'?'btn-danger':''}" style="${mode==='AA'?'border:2px solid #ef4444':''}" onclick="state.mode='AA';render()">AA 平均分攤</button>
-            <button class="btn ${mode==='AB'?'btn-success':''}" style="${mode==='AB'?'border:2px solid #22c55e':''}" onclick="state.mode='AB';render()">AB 各付各的</button>
+            <button class="btn ${mode==='AA'?'btn-danger':''}" style="${mode==='AA'?'border:2px solid #ef4444':'border:2px solid #e5e7eb'}" onclick="toggleMode('AA')">AA 平均分攤</button>
+            <button class="btn ${mode==='AB'?'btn-success':''}" style="${mode==='AB'?'border:2px solid #22c55e':'border:2px solid #e5e7eb'}" onclick="toggleMode('AB')">AB 各付各的</button>
           </div>
           
           <div class="card mb-4">
             <p class="font-bold text-sm mb-2">使用者</p>
             <div class="flex gap-2 mb-2">
-              <input class="input flex-1" placeholder="輸入名稱" value="${newUser}" oninput="state.newUser=this.value"/>
-              <button class="btn btn-secondary" style="width:auto;padding:12px" onclick="if(state.newUser){state.users.push({id:uid(),name:state.newUser});state.newUser='';render()}">＋</button>
+              <input class="input flex-1" placeholder="輸入名稱" id="newUserInput" value="${newUser}" oninput="newUser=this.value"/>
+              <button class="btn btn-secondary btn-sm" onclick="addNewUser()">＋</button>
             </div>
-            <div>${users.map(u=>`<span class="user-tag">${u.name}<button onclick="state.users=state.users.filter(x=>x.id!=='${u.id}');render()" style="margin-left:4px;border:none;background:none;color:#ef4444;cursor:pointer">×</button></span>`).join('')}</div>
+            <div>${users.map(u=>`<span class="tag">${u.name}<button onclick="removeUser('${u.id}')">×</button></span>`).join('')}</div>
           </div>
           
-          <button class="btn btn-primary" ${!projName?'disabled':''} onclick="createProject()">建立專案</button>
+          <button class="btn btn-primary" id="createBtn" onclick="createProject()" ${!projName?'disabled':''}>建立專案</button>
         `;
         return;
       }
       
-      // 專案內
-      if(state.page==='project'){
-        const proj=state.project;
-        const total=proj.exs.reduce((s,e)=>s+e.amount,0);
-        
+      if(page==='project'){
+        const total=expenses.reduce((s,e)=>s+e.amount,0);
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="setPage('home')">← 返回</button>
-          <div class="card ${proj.mode==='AA'?'aa-bg':'ab-bg'} mb-4">
+          <button class="text-sm text-gray mb-2" onclick="goHome()">← 返回</button>
+          <div class="card ${mode==='AA'?'aa-bg':'ab-bg'} mb-4">
             <div class="flex justify-between items-center">
-              <span class="title">${proj.name}</span>
-              <span class="${proj.mode==='AA'?'aa-badge':'ab-badge'}">${proj.mode}</span>
+              <span class="title">${project?.name||''}</span>
+              <span class="badge ${mode==='AA'?'aa-badge':'ab-badge'}">${mode}</span>
             </div>
-            <p class="text-sm text-gray mt-2">${proj.users.length} 人</p>
+            <p class="text-sm text-gray mt-2">${users.length} 人</p>
           </div>
           
           <div class="flex gap-2 mb-4">
-            <button class="btn btn-primary flex-1" onclick="setPage('add')">＋ 新增消費</button>
-            <button class="btn btn-secondary flex-1" onclick="setPage('users')">👤 成員</button>
-            <button class="btn btn-secondary flex-1" onclick="setPage('balance')">📊 結欠</button>
+            <button class="btn btn-primary flex-1" onclick="goAdd()">＋ 新增消費</button>
+            <button class="btn btn-secondary flex-1" onclick="goUsers()">👤 成員</button>
+            <button class="btn btn-secondary flex-1" onclick="goBalance()">📊 結欠</button>
           </div>
           
           <div class="card">
             <h3 class="font-bold text-gray mb-2">消費紀錄</h3>
-            ${proj.exs.length===0?'<p class="text-center text-gray" style="padding:20px">尚無消費</p>':
-            proj.exs.slice().reverse().map(e=>`<div class="expense">
+            ${expenses.length===0?'<p class="text-center text-gray" style="padding:20px">尚無消費</p>':
+            expenses.slice().reverse().map(e=>`<div class="item">
               <div class="flex justify-between"><span>${e.desc}</span><span class="font-bold">NT$ ${e.amount}</span></div>
               <p class="text-sm text-gray">${e.payer?e.payer+' 付':'平均分攤'} • ${new Date(e.t).toLocaleDateString()}</p>
             </div>`).join('')}
@@ -140,130 +134,138 @@
         return;
       }
       
-      // 新增消費
-      if(state.page==='add'){
-        const proj=state.project;
+      if(page==='add'){
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="setPage('project')">← 返回</button>
+          <button class="text-sm text-gray mb-2" onclick="goProject()">← 返回</button>
           <h2 class="title mb-4">新增消費</h2>
-          <input class="input mb-2" placeholder="消費項目" id="expenseDesc"/>
-          <input class="input mb-2" placeholder="金額" type="number" id="expenseAmount"/>
-          ${proj.mode==='AA'?'<div class="mb-4"><label class="text-sm"><input type="checkbox" id="hasPayer" onchange="render()"/> 指定付款人</label></div>':''}
-          <button class="btn btn-primary" onclick="addExpense()">確認</button>
+          <input class="input" placeholder="消費項目" id="desc" value="${desc}" oninput="desc=this.value"/>
+          <input class="input" placeholder="金額" type="number" id="amount" value="${amount}" oninput="amount=this.value"/>
+          ${mode==='AA'?'<div class="mb-4"><label class="text-sm"><input type="checkbox" id="hasPayer" onchange="togglePayer()"/> 指定付款人</label></div>':''}
+          ${payerName!==''?'<input class="input mb-4" placeholder="輸入付款人姓名" id="payerInput" value="${payerName}" oninput="payerName=this.value"/>':''}
+          <button class="btn btn-primary" onclick="saveExpense()" ${!desc||!amount?'disabled':''}>確認</button>
         `;
         return;
       }
       
-      // 成員
-      if(state.page==='users'){
-        const proj=state.project;
+      if(page==='users'){
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="setPage('project')">← 返回</button>
+          <button class="text-sm text-gray mb-2" onclick="goProject()">← 返回</button>
           <h2 class="title mb-4">管理成員</h2>
           <div class="flex gap-2 mb-4">
-            <input class="input flex-1" placeholder="新成員名稱" id="newUserName"/>
-            <button class="btn btn-secondary" style="width:auto;padding:12px" onclick="addUser()">＋</button>
+            <input class="input flex-1" placeholder="新成員名稱" id="addUserName" value="${addUserName}" oninput="addUserName=this.value"/>
+            <button class="btn btn-secondary btn-sm" onclick="addNewMember()">＋</button>
           </div>
-          <div class="card">${proj.users.map(u=>`<div class="flex justify-between" style="padding:12px 0;border-bottom:1px solid #e5e7eb">
+          <div class="card">${users.map(u=>`<div class="flex justify-between item">
             <span>${u.name}</span>
-            <button style="border:none;background:none;color:#ef4444;cursor:pointer" onclick="removeUser('${u.id}')">刪除</button>
+            <button style="border:none;background:none;color:#ef4444;cursor:pointer" onclick="deleteUser('${u.id}')">刪除</button>
           </div>`).join('')}</div>
         `;
         return;
       }
       
-      // 結欠
-      if(state.page==='balance'){
-        const proj=state.project;
+      if(page==='balance'){
         const bal={};
-        proj.users.forEach(u=>bal[u.id]=0);
-        proj.exs.forEach(e=>{
-          if(proj.mode==='AA'){
-            const split=e.amount/(proj.users.length||1);
-            proj.users.forEach(u=>bal[u.id]+=split);
+        users.forEach(u=>bal[u.id]=0);
+        expenses.forEach(e=>{
+          if(mode==='AA'){
+            const split=e.amount/(users.length||1);
+            users.forEach(u=>bal[u.id]+=split);
             if(e.payer){
-              const p=proj.users.find(u=>u.name===e.payer);
+              const p=users.find(u=>u.name===e.payer);
               if(p)bal[p.id]-=e.amount;
             }
           }
         });
-        const total=proj.exs.reduce((s,e)=>s+e.amount,0);
+        const total=expenses.reduce((s,e)=>s+e.amount,0);
         
         app.innerHTML=`
-          <button class="text-sm text-gray mb-2" onclick="setPage('project')">← 返回</button>
+          <button class="text-sm text-gray mb-2" onclick="goProject()">← 返回</button>
           <h2 class="title mb-4">結欠明細</h2>
           <div class="card mb-4"><p class="text-sm text-gray">總消費</p><p class="title">NT$ ${total}</p></div>
-          <div class="card mb-4">${proj.users.map(u=>{const amt=bal[u.id]||0;return`<div style="padding:12px 0;border-bottom:1px solid #e5e5e7${amt>0.01?';background:#fef2f2;margin:0 -12px;padding:12px':amt<-0.01?';background:#f0fdf4;margin:0 -12px;padding:12px':''}">
+          <div class="card mb-4">${users.map(u=>{const amt=bal[u.id]||0;return`<div class="item ${amt>0.01?'background:#fef2f2;margin:0 -16px;padding:12px 16px':amt<-0.01?'background:#f0fdf4;margin:0 -16px;padding:12px 16px':''}">
             <span>${u.name}</span>
             <span class="${amt>0?'positive':amt<0?'negative':''}" style="font-weight:bold">${amt>0?'+':''}${amt.toFixed(0)}</span>
           </div>`})}</div>
-          <button class="btn btn-danger" onclick="settle()">💚 一鍵結清</button>
+          <button class="btn btn-danger" onclick="settleAll()">💚 一鍵結清</button>
         `;
       }
     }
     
-    // 狀態
-    let state={page:'home',project:null};
+    function goHome(){page='home';project=null;render();}
+    function goNew(){page='new';projName='';mode='AA';newUser='';users=[];render();}
+    function goProject(){page='project';render();}
+    function goAdd(){page='add';desc='';amount='';payerName='';render();}
+    function goUsers(){page='users';addUserName='';render();}
+    function goBalance(){page='balance';render();}
     
-    function setPage(page){
-      state.page=page;
+    function toggleMode(m){mode=m;render();}
+    function togglePayer(){payerName=document.getElementById('hasPayer').checked?'1':'';render();}
+    
+    function openProj(id){
+      project=load(id);
+      users=project.users;
+      expenses=project.exs;
+      mode=project.mode;
+      page='project';
       render();
     }
     
-    function openProject(id){
-      state.project=load(id);
-      state.page='project';
+    function addNewUser(){
+      if(!newUser)return;
+      users.push({id:uid(),name:newUser});
+      newUser='';
+      render();
+    }
+    
+    function removeUser(id){
+      users=users.filter(u=>u.id!==id);
       render();
     }
     
     function createProject(){
-      const proj={id:uid(),name:state.projName,mode:state.mode,users:state.users,exs:[],t:new Date().toISOString()};
+      if(!projName)return;
+      const proj={id:uid(),name:projName,mode,users,exs:[],t:new Date().toISOString()};
       save('proj_'+proj.id,proj);
-      state.project=proj;
-      state.page='project';
+      project=proj;
+      page='project';
       render();
     }
     
-    function addExpense(){
-      const desc=document.getElementById('expenseDesc').value;
-      const amount=parseFloat(document.getElementById('expenseAmount').value);
+    function addNewMember(){
+      if(!addUserName)return;
+      users.push({id:uid(),name:addUserName});
+      save('proj_'+project.id,{...project,users});
+      project.users=users;
+      addUserName='';
+      render();
+    }
+    
+    function deleteUser(id){
+      users=users.filter(u=>u.id!==id);
+      project.users=users;
+      save('proj_'+project.id,project);
+      render();
+    }
+    
+    function saveExpense(){
       if(!desc||!amount)return;
-      const payer=document.getElementById('hasPayer')?.checked?null:null;
       const p=document.getElementById('hasPayer');
-      let selectedPayer=null;
-      if(p&&p.checked){
-        selectedPayer=prompt('輸入付款人姓名')||null;
-      }
-      const exp={id:uid(),desc,amount,payer:selectedPayer,t:new Date().toISOString()};
-      state.project.exs.push(exp);
-      save('proj_'+state.project.id,state.project);
-      setPage('project');
-    }
-    
-    function addUser(){
-      const name=document.getElementById('newUserName').value;
-      if(!name)return;
-      state.project.users.push({id:uid(),name});
-      save('proj_'+state.project.id,state.project);
-      document.getElementById('newUserName').value='';
+      const payer=(p&&p.checked)?payerName:null;
+      expenses.push({id:uid(),desc,amount:parseFloat(amount),payer,t:new Date().toISOString()});
+      project.exs=expenses;
+      save('proj_'+project.id,project);
+      page='project';
       render();
     }
     
-    function removeUser(uid){
-      state.project.users=state.project.users.filter(u=>u.id!==uid);
-      save('proj_'+state.project.id,state.project);
-      render();
-    }
-    
-    function settle(){
+    function settleAll(){
       if(!confirm('確定結清？會清除所有消費紀錄'))return;
-      state.project.exs=[];
-      state.project.users.forEach(u=>{state.project.bal[u.id]=0;});
-      save('proj_'+state.project.id,state.project);
-      setPage('home');
+      expenses=[];
+      project.exs=[];
+      save('proj_'+project.id,project);
+      goHome();
     }
     
-    // 初始化
     render();
   </script>
 </body>
