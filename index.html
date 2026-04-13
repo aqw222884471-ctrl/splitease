@@ -3,74 +3,247 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SplitEase - 晚餐分帳</title>
+  <title>SplitEase - 分帳工具</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { aa: '#EF4444', ab: '#22C55E' } } } }</script>
 </head>
 <body class="bg-slate-100 min-h-screen">
   <div id="app" class="max-w-md mx-auto p-4"></div>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <script type="text/babel">
-    const {useState,useEffect}=React;
-    const API='';
-    const db={projects:{},parts:{},exps:{}};
+    const{useState,useEffect}=React;
     const uid=()=>Math.random().toString(36).substr(2,9);
-    const code=()=>Math.random().toString(36).substr(2,6).toUpperCase();
-    const api={
-      c:(n,m,u)=>{const p={id:uid(),code:code(),name:n,mode:m,bal:{},t:new Date()};
-        const h={id:uid(),name:u,host:true};
-        db.projects[p.id]=p;db.parts[p.id]=[h];db.exps[p.id]=[];
-        localStorage.setItem('pid',p.id);localStorage.setItem('uid',h.id);
-        return Promise.resolve(p)},
-      j:(c,u)=>{const p=Object.values(db.projects).find(x=>x.code===c);
-        if(!p)return Promise.reject('no');const x={id:uid(),name:u,host:false};
-        db.parts[p.id].push(x);localStorage.setItem('pid',p.id);localStorage.setItem('uid',x.id);
-        return Promise.resolve(p)},
-      gp:()=>db.parts[localStorage.getItem('pid')]||[],
-      ge:()=>db.exps[localStorage.getItem('pid')]||[],
-      ad:(df,it)=>{const pid=localStorage.getItem('pid');const p=db.projects[pid];
-        const pts=db.parts[pid];const per=(parseFloat(df)||0)/(pts.length||1);
-        const ex={id:uid(),items:it.map(i=>({pid:i.pid,amt:parseFloat(i.a),total:parseFloat(i.a)+per})),t:new Date()};
-        it.forEach(i=>{const id=i.pid;p.bal[id]=(p.bal[id]||0)+parseFloat(i.a)+per});
-        db.exps[pid].push(ex);return Promise.resolve(ex)},
-      gb:()=>{const pid=localStorage.getItem('pid');const p=db.projects[pid];
-        return Promise.resolve({b:Object.entries(p.bal).map(([id,amt])=>{
-          const pt=db.parts[pid].find(x=>x.id===id);
-          return{pid:id,name:pt.name,host:pt.host,amt:amt}
-        }),tot:db.exps[pid].reduce((s,e)=>s+e.items.reduce((a,i)=>a+i.total,0),0)})},
-      st:()=>{const pid=localStorage.getItem('pid');db.projects[pid].bal={};db.exps[pid]=[];return Promise.resolve({ok:1})}
+    const load=k=>JSON.parse(localStorage.getItem('splitease_'+k)||'null');
+    const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
+    
+    // 全域數據
+    const getAllProjects=()=>{
+      const keys=Object.keys(localStorage).filter(k=>k.startsWith('splitease_proj_'));
+      return keys.map(k=>load(k.replace('splitease_',''))).filter(p=>p).sort((a,b)=>new Date(b.t)-new Date(a.t));
     };
-    function Home(){return(<div className="text-center py-8"><h1 className="text-4xl font-bold text-orange-500 mb-2">🍜</h1><h2 className="text-2xl font-bold text-indigo-600 mb-6">SplitEase</h2><button onClick={()=>n('c')} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold mb-3">建立新專案</button><button onClick={()=>n('j')} className="block w-full bg-gray-200 py-3 rounded-lg font-bold">加入專案</button></div>);}
-    function Create({done}){const[m,setM]=useState('dinner');const[nm,setNm]=useState('');const[un,setUn]=useState('');const[load,setL]=useState(false);const[ok,setOk]=useState(null);
-      const go=async e=>{e.preventDefault();if(!nm||!un)return;setL(true);const p=await api.c(nm,m,un);setOk(p);setL(false);}
-      if(ok)return(<div className="text-center"><h2 className="text-xl font-bold text-green-600 mb-4">✅ 成功</h2><div className="bg-gray-100 p-4 rounded mb-4"><p className="text-gray-500 text-sm">邀請碼</p><p className="text-3xl font-bold">{ok.code}</p></div><button onClick={()=>n(ok.id)} className="block w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">進入 →</button></div>);
-      return(<form onSubmit={go}><div className="grid grid-cols-2 gap-2 mb-4"><button type="button" onClick={()=>setM('dinner')} className={`p-4 rounded-xl border-2 ${m==='dinner'?'border-orange-500 bg-orange-50':'border-gray-200'}`}><span className="text-2xl">🍜</span><br/><span className="font-bold">晚餐</span></button><button type="button" onClick={()=>setM('full')} className={`p-4 rounded-xl border-2 ${m==='full'?'border-indigo-500 bg-indigo-50':'border-gray-200'}`}><span className="text-2xl">📊</span><br/><span className="font-bold">完整</span></button></div><input value={nm} onChange={e=>setNm(e.target.value)} placeholder="專案名稱" className="w-full p-3 border rounded mb-3"/><input value={un} onChange={e=>setUn(e.target.value)} placeholder="你的暱稱" className="w-full p-3 border rounded mb-3"/><button disabled={load||!nm||!un} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold">{load?'處理中':'建立專案'}</button></form>);}
-    function Join(){const[c,setC]=useState('');const[u,setU]=useState('');const[l,setL]=useState(false);
-      const go=async e=>{e.preventDefault();if(!c||!u)return;setL(true);try{await api.j(c.toUpperCase(),u);n(localStorage.getItem('pid'));}catch{alert('邀請碼錯誤');}setL(false);}
-      return(<form onSubmit={go}><input value={c} onChange={e=>setC(e.target.value.toUpperCase())} placeholder="輸入6位數邀請碼" className="w-full p-3 border rounded mb-3 text-center text-xl tracking-widest"/><input value={u} onChange={e=>setU(e.target.value)} placeholder="你的暱稱" className="w-full p-3 border rounded mb-3"/><button disabled={l} className="block w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">{l?'處理中':'加入'}</button></form>);}
-    function Dashboard(){const[pts,setPts]=useState([]);const[exs,setExs]=useState([]);const[bal,setBal]=useState(null);const uid=localStorage.getItem('uid');const pid=localStorage.getItem('pid');
-      useEffect(()=>{setPts(api.gp());setExs(api.ge());api.gb().then(setBal);},[]);
-      const owe=bal?.b.find(x=>x.pid===uid)?.amt||0;
-      return(<div><div className="bg-orange-500 text-white p-4 rounded mb-4"><p className="text-sm opacity-80">你的欠款</p><p className="text-3xl font-bold">NT$ {owe}</p></div><div className="flex gap-2 mb-4"><button onClick={()=>n(pid+'/d')} className="flex-1 bg-orange-500 text-white py-3 rounded font-bold">🍜 新增點單</button><button onClick={()=>n(pid+'/b')} className="flex-1 bg-gray-200 py-3 rounded font-bold">📋 欠款</button></div><div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-gray-600 mb-2">點單記錄</h3>{exs.length===0?<p className="text-gray-400 text-center py-4">尚無記錄</p>:exs.map(e=><div key={e.id} className="border-b py-2"><p className="text-sm text-gray-500">{e.t.toLocaleString()}</p><p className="font-bold">NT$ {e.items.reduce((s,i)=>s+i.total,0)}</p></div>)}</div></div>);}
-    function AddDinner(){const[pts,setPts]=useState([]);const[df,setDf]=useState('');const[its,setIts]={};const[l,setL]=useState(false);const pid=localStorage.getItem('pid');
-      useEffect(()=>{const p=api.gp();setPts(p);p.forEach(x=>its[x.id]='');setIts({...its});},[]);
-      const go=async e=>{e.preventDefault();const arr=Object.entries(its).filter(([k,v])=>v).map(([k,v])=>({pid:k,a:parseFloat(v)||0})).filter(x=>x.a>0);
-        if(arr.length===0)return alert('請輸入金額');setL(true);await api.ad(df,arr);alert('✅ 已記錄');n(pid);setL(false);}
-      const per=(parseFloat(df)||0)/(pts.length||1);
-      return(<form onSubmit={go}><div className="bg-white p-4 rounded mb-4"><label className="block font-bold mb-2">🚴 外送費（均分）</label><input type="number" value={df} onChange={e=>setDf(e.target.value)} className="w-full p-3 border rounded"/><p className="text-sm text-gray-500 mt-1">NT$ {per}/人</p></div><div className="bg-white p-4 rounded mb-4"><label className="block font-bold mb-2">🍽️ 點餐金額</label>{pts.map(p=><div key={p.id} className="flex items-center mb-3"><span className="flex-1 font-medium">{p.name} {p.host&&'👑'}</span><input type="number" value={its[p.id]} onChange={e=>{its[p.id]=e.target.value;setIts({...its});}} className="w-28 p-2 border rounded text-right" placeholder="0"/></div>)}</div><button disabled={l} className="block w-full bg-orange-500 text-white py-3 rounded-lg font-bold">{l?'儲存中':'✅ 確認記錄'}</button></form>);}
-    function Balance(){const[b,setB]=useState(null);const[l,setL]=useState(true);const uid=localStorage.getItem('uid');
-      useEffect(()=>{api.gb().then(x=>{setB(x);setL(false);});},[]);
-      const go=async()=>{if(!confirm('確定結清？會清除所有記錄'))return;setL(true);await api.st();alert('✅ 已結清');n(localStorage.getItem('pid'));}
-      if(l)return(<div className="text-center py-8">載入中...</div>);
-      const host=b?.b.find(x=>x.host);const mems=b?.b.filter(x=>!x.host)||[];
-      return(<div><div className="bg-orange-50 p-4 rounded mb-4"><p className="text-orange-600 text-sm">累積總消費</p><p className="text-2xl font-bold text-orange-600">NT$ {b.tot}</p></div><div className="bg-white p-4 rounded mb-4">{host&&<div className="flex justify-between py-2 border-b"><span className="font-medium">{host.name} 👑</span><span className="text-green-600">+NT$ {host.amt}</span></div>}{mems.map(m=><div key={m.pid} className={`flex justify-between py-2 ${m.amt>0?'bg-red-50 -mx-2 px-2 rounded':''}`}><span className={m.pid===uid?'text-orange-600 font-bold':''}>{m.name} {m.pid===uid&&'(你)'}</span><span className={m.amt>0?'text-red-600':'text-gray-400'}>NT$ {m.amt>0?'-':''}{m.amt}</span></div>)}</div><button onClick={go} className="block w-full bg-green-500 text-white py-3 rounded-lg font-bold">💚 一鍵結清</button></div>);}
-    let cur='';
-    const n=(p)=>{cur=p;r();};
-    function App(){const pid=localStorage.getItem('pid');if(!pid&&!cur)return<Home/>;if(cur==='c')return<Create done={n}/>;if(cur==='join')return<Join/>;if(cur&&!cur.startsWith('/'))return<Dashboard/>;if(cur){const id=cur.split('/')[0];if(cur.includes('/d'))return<AddDinner/>;if(cur.includes('/b'))return<Balance/>;return<Dashboard/>;}return<Home/>;}
-    function r(){ReactDOM.render(<App/>,document.getElementById('app'));}
-    r();
+    const getCurrentUser=()=>load('current_user');
+    
+    // 首頁
+    function Home(){
+      const[projects,setProjects]=useState([]);
+      useEffect(()=>setProjects(getAllProjects()),[]);
+      return(<div>
+        <div className="text-center py-6"><h1 className="text-3xl font-bold text-indigo-600 mb-1">SplitEase</h1><p className="text-gray-500 text-sm">簡單分帳</p></div>
+        <button onClick={()=>n('new')} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mb-4">＋ 新增專案</button>
+        {projects.length===0?<div className="text-center py-8 text-gray-400">尚無專案</div>:
+        <div className="space-y-2">{projects.map(p=><div key={p.id} onClick={()=>n(p.id)} className={`p-4 rounded-lg cursor-pointer ${p.mode==='AA'?'bg-red-50 border-l-4 border-red-500':'bg-green-50 border-l-4 border-green-500'}`}>
+          <div className="flex justify-between items-center">
+            <span className="font-bold text-lg">{p.name}</span>
+            <span className={`text-xs px-2 py-1 rounded ${p.mode==='AA'?'bg-red-500 text-white':'bg-green-500 text-white'}`}>{p.mode}</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{p.users.length} 人 • 結欠：NT$ {Object.values(p.bal).reduce((s,v)=>s+v,0)}</p>
+        </div>)}</div>}
+      </div>);
+    }
+    
+    // 新增專案
+    function NewProject(){
+      const[name,setName]=useState('');
+      const[mode,setMode]=useState('AA');
+      const[users,setUsers]=useState([]);
+      const[newUser,setNewUser]=useState('');
+      const create=()=>{if(!name)return;
+        const proj={id:uid(),name,mode,users:[],bal:{},exs:[],t:new Date().toISOString()};
+        save('proj_'+proj.id,proj);
+        setProjects(getAllProjects());n(proj.id);
+      };
+      const addUser=()=>{if(!newUser)return;setUsers([...users,{id:uid(),name:newUser}]);setNewUser('');};
+      const removeUser=id=>setUsers(users.filter(u=>u.id!==id));
+      return(<div>
+        <button onClick={()=>n('')} className="text-gray-500 text-sm mb-2">← 返回</button>
+        <h2 className="text-xl font-bold mb-4">新增專案</h2>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="專案名稱" className="w-full p-3 border rounded mb-3"/>
+        
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <button onClick={()=>setMode('AA')} className={`p-3 rounded border-2 ${mode==='AA'?'border-red-500 bg-red-50':'border-gray-200'}`}>
+            <span className="text-lg">✂️</span><br/><span className="font-bold">AA mode</span><p className="text-xs text-gray-500">平均分攤</p>
+          </button>
+          <button onClick={()=>setMode('AB')} className={`p-3 rounded border-2 ${mode==='AB'?'border-green-500 bg-green-50':'border-gray-200'}`}>
+            <span className="text-lg">📝</span><br/><span className="font-bold">AB mode</span><p className="text-xs text-gray-500">各付各的</p>
+          </button>
+        </div>
+        
+        <div className="bg-white p-3 rounded mb-3">
+          <p className="font-bold text-sm mb-2">使用者</p>
+          <div className="flex gap-2 mb-2"><input value={newUser} onChange={e=>setNewUser(e.target.value)} placeholder="輸入名稱" className="flex-1 p-2 border rounded"/><button onClick={addUser} className="bg-gray-200 px-3 rounded">＋</button></div>
+          <div className="flex flex-wrap gap-1">{users.map(u=><span key={u.id} className="bg-gray-100 px-2 py-1 rounded text-sm">{u.name} <button onClick={()=>removeUser(u.id)} className="text-red-500 ml-1">×</button></span>)}</div>
+        </div>
+        
+        <button onClick={create} disabled={!name} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">建立專案</button>
+      </div>);
+    }
+    
+    // 專案內
+    function Project({id}){
+      const[proj,setProj]=useState(null);
+      const[view,setView]=useState('main');
+      useEffect(()=>setProj(load(id)),[id];
+      if(!proj)return<div className="text-center py-8">載入中...</div>;
+      
+      // AA模式：顯示結欠
+      const getTotal=()=>proj.exs.reduce((s,e)=>s+e.amount,0);
+      const getPaid=()=>proj.exs.reduce((s,e)=>s+(e.payer?e.amount:0),0);
+      
+      if(view==='add')return<AddExpense proj={proj} setProj={setProj} id={id} back={()=>setView('main')}/>;
+      if(view==='users')return<ManageUsers proj={proj} setProj={setProj} id={id} back={()=>setView('main')}/>;
+      if(view==='balance')return<Balance proj={proj} back={()=>setView('main')}/>;
+      
+      return(<div>
+        <button onClick={()=>n('')} className="text-gray-500 text-sm mb-2">← 返回</button>
+        <div className={`p-4 rounded-lg mb-4 ${proj.mode==='AA'?'bg-red-50 border-l-4 border-red-500':'bg-green-50 border-l-4 border-green-500'}`}>
+          <div className="flex justify-between items-center">
+            <span className="font-bold text-xl">{proj.name}</span>
+            <span className={`text-xs px-2 py-1 rounded ${proj.mode==='AA'?'bg-red-500 text-white':'bg-green-500 text-white'}`}>{proj.mode}</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{proj.users.length} 人</p>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <button onClick={()=>setView('add')} className="bg-indigo-600 text-white py-3 rounded font-bold text-center">＋ 新增消費</button>
+          <button onClick={()=>setView('users')} className="bg-gray-200 py-3 rounded font-bold text-center">👤 成員</button>
+          <button onClick={()=>setView('balance')} className="bg-gray-200 py-3 rounded font-bold text-center">📊 結欠</button>
+        </div>
+        
+        <div className="bg-white p-4 rounded shadow">
+          <h3 className="font-bold text-gray-600 mb-2">消費紀錄</h3>
+          {proj.exs.length===0?<p className="text-gray-400 text-center py-4">尚無消費</p>:
+          proj.exs.slice().reverse().map(e=><div key={e.id} className="border-b py-2">
+            <div className="flex justify-between"><span>{e.desc}</span><span className="font-bold">NT$ {e.amount}</span></div>
+            <p className="text-xs text-gray-500">{e.payer?`${e.payer} 付`:'均分'} • {new Date(e.t).toLocaleDateString()}</p>
+          </div>)}
+        </div>
+      </div>);
+    }
+    
+    // 新增消費
+    function AddExpense({proj,setProj,id,back}){
+      const[desc,setDesc]=useState('');
+      const[amount,setAmount]=useState('');
+      const[payer,setPayer]=useState('');
+      const[showPayer,setShowPayer]=useState(false);
+      
+      const submit=()=>{if(!desc||!amount)return;
+        const exp={id:uid(),desc,amount:parseFloat(amount),payer:proj.mode==='AA'&&payer?payer:null,t:new Date().toISOString()};
+        const newProj={...proj,exs:[...proj.exs,exp]};
+        
+        // 計算結欠
+        if(proj.mode==='AA'){
+          // AA：大家平分，若有 payer 則全給 payer
+          const split=parseFloat(amount)/proj.users.length;
+          newProj.bal={};
+          proj.users.forEach(u=>{newProj.bal[u.id]=split;});
+          if(payer){
+            proj.users.forEach(u=>{newProj.bal[u.id]=0;});
+            const pObj=proj.users.find(u=>u.name===payer);
+            if(pObj)newProj.bal[pObj.id]=parseFloat(amount);
+          }
+        }else{
+          // AB：各自付，已在創建時記錄
+        }
+        
+        save('proj_'+id,newProj);setProj(newProj);back();
+      };
+      
+      return(<div>
+        <button onClick={back} className="text-gray-500 text-sm mb-2">← 返回</button>
+        <h2 className="text-xl font-bold mb-4">新增消費</h2>
+        
+        <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="消費項目" className="w-full p-3 border rounded mb-3"/>
+        <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="金額" className="w-full p-3 border rounded mb-3"/>
+        
+        {proj.mode==='AA'&&<div className="mb-3">
+          <label className="flex items-center gap-2 text-sm mb-2">
+            <input type="checkbox" checked={showPayer} onChange={e=>setShowPayer(e.target.checked)} className="w-4 h-4"/>
+            指定付款人
+          </label>
+          {showPayer&&<select value={payer} onChange={e=>setPayer(e.target.value)} className="w-full p-2 border rounded">
+            <option value="">請選擇</option>
+            {proj.users.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}
+          </select>}
+        </div>}
+        
+        <div className="bg-gray-100 p-3 rounded text-sm text-gray-600 mb-3">
+          {proj.mode==='AA'?'AA模式：金額平均分攤給所有人'+((payer&&showPayer)?`（${payer} 全部）`:''):'AB模式：金額由該人自行負擔'}
+        </div>
+        
+        <button onClick={submit} disabled={!desc||!amount} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">確認</button>
+      </div>);
+    }
+    
+    // 管理成員
+    function ManageUsers({proj,setProj,id,back}){
+      const[newName,setNewName]=useState('');
+      const add=()=>{if(!newName)return;
+        const newProj={...proj,users:[...proj.users,{id:uid(),name:newName}]};
+        save('proj_'+id,newProj);setProj(newProj);setNewName('');
+      };
+      const remove=uid=>{const newProj={...proj,users:proj.users.filter(u=>u.id!==uid)};save('proj_'+id,newProj);setProj(newProj);};
+      
+      return(<div>
+        <button onClick={back} className="text-gray-500 text-sm mb-2">← 返回</button>
+        <h2 className="text-xl font-bold mb-4">管理成員</h2>
+        <div className="flex gap-2 mb-4"><input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="新成員名稱" className="flex-1 p-2 border rounded"/><button onClick={add} className="bg-gray-200 px-4 rounded">＋</button></div>
+        <div className="space-y-2">{proj.users.map(u=><div key={u.id} className="flex justify-between bg-white p-3 rounded"><span>{u.name}</span><button onClick={()=>remove(u.id)} className="text-red-500">刪除</button></div>)}</div>
+      </div>);
+    }
+    
+    // 結欠
+    function Balance({proj,back}){
+      // 計算結欠
+      const getBalance=()=>{
+        const bal={};
+        proj.users.forEach(u=>{bal[u.id]=0;});
+        proj.exs.forEach(e=>{
+          if(proj.mode==='AA'){
+            const split=e.amount/proj.users.length;
+            proj.users.forEach(u=>{bal[u.id]+=split;});
+            if(e.payer){
+              const pObj=proj.users.find(u=>u.name===e.payer);
+              if(pObj)bal[pObj.id]-=e.amount;
+            }
+          }
+        });
+        return bal;
+      };
+      const bal=getBalance();
+      const total=proj.exs.reduce((s,e)=>s+e.amount,0);
+      const debtors=Object.entries(bal).filter(([k,v])=>v>0.01).sort((a,b)=>b[1]-a[1]);
+      const creditors=Object.entries(bal).filter(([k,v])=>v<-0.01).sort((a,b)=>a[1]-b[1]);
+      
+      return(<div>
+        <button onClick={back} className="text-gray-500 text-sm mb-2">← 返回</button>
+        <h2 className="text-xl font-bold mb-4">結欠明細</h2>
+        <div className="bg-gray-100 p-3 rounded mb-4"><p className="text-sm text-gray-600">總消費</p><p className="text-2xl font-bold">NT$ {total}</p></div>
+        
+        <div className="bg-white p-3 rounded mb-4 space-y-2">
+          {proj.users.map(u=>{const amt=bal[u.id]||0;return(<div key={u.id} className={`flex justify-between py-2 ${amt>0.01?'bg-red-50 -mx-3 px-3 rounded':amt<-0.01?'bg-green-50 -mx-3 px-3 rounded':''}`}>
+            <span>{u.name}</span><span className={amt>0?'text-red-600 font-bold':amt<0?'text-green-600':''}>{amt>0?'+'+(amt).toFixed(0):amt<0?amt.toFixed(0):'0'}</span>
+          </div>);})}
+        </div>
+        
+        <button onClick={()=>{if(confirm('確定結清？會清除所有消費紀錄')){
+          const newProj={...proj,exs:[],bal:{}};
+          proj.users.forEach(u=>{newProj.bal[u.id]=0;});
+          save('proj_'+proj.id,newProj);n('');
+        }}} className="w-full bg-red-500 text-white py-3 rounded-lg font-bold">💚 一鍵結清</button>
+      </div>);
+    }
+    
+    // Router
+    let cur='';const n=p=>{cur=p;r();};
+    function App(){
+      if(cur==='new')return<NewProject/>;
+      if(cur)return<Project id={cur}/>;
+      return<Home/>;
+    }
+    function r(){ReactDOM.render(<App/>,document.getElementById('app'));}r();
   </script>
 </body>
 </html>
