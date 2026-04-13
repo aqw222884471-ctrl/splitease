@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SplitEase - 簡單分帳</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6366F1',
+            background: '#F8FAFC'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-background min-h-screen">
+  <div id="app"></div>
+  
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    
+    // ===== API =====
+    const API_BASE = 'http://localhost:3000';
+    
+    const api = {
+      createProject: async (name, currency, mode, hostName) => {
+        const res = await axios.post(`${API_BASE}/api/projects`, { name, currency, mode, hostName });
+        return res.data;
+      },
+      getProject: async (projectId) => {
+        const res = await axios.get(`${API_BASE}/api/projects/${projectId}`);
+        return res.data;
+      },
+      joinByCode: async (inviteCode) => {
+        const res = await axios.get(`${API_BASE}/api/projects/join/${inviteCode}`);
+        return res.data;
+      },
+      addParticipant: async (projectId, name) => {
+        const res = await axios.post(`${API_BASE}/api/projects/${projectId}/participants`, { name });
+        return res.data;
+      },
+      getParticipants: async (projectId) => {
+        const res = await axios.get(`${API_BASE}/api/projects/${projectId}/participants`);
+        return res.data;
+      },
+      addDinnerExpense: async (projectId, { deliveryFee, items, createdBy }) => {
+        const res = await axios.post(`${API_BASE}/api/projects/${projectId}/dinner-expenses`, { deliveryFee, items, createdBy });
+        return res.data;
+      },
+      getExpenses: async (projectId) => {
+        const res = await axios.get(`${API_BASE}/api/projects/${projectId}/expenses`);
+        return res.data;
+      },
+      getDinnerBalance: async (projectId) => {
+        const res = await axios.get(`${API_BASE}/api/projects/${projectId}/balance`);
+        return res.data;
+      },
+      settleAll: async (projectId) => {
+        const res = await axios.post(`${API_BASE}/api/projects/${projectId}/settle`);
+        return res.data;
+      }
+    };
+    
+    // ===== Home 頁面 =====
+    function Home() {
+      return (
+        <div className="max-w-md mx-auto min-h-screen flex flex-col p-4">
+          <div className="text-center mb-6">
+            <h1 className="text-4xl font-bold text-primary mb-2">🍜 SplitEase</h1>
+            <p className="text-gray-500">簡單分帳，從此輕鬆</p>
+          </div>
+          
+          <div className="w-full mb-6">
+            <button onClick={() => navigate('create')} className="btn-primary w-full py-3 text-lg bg-orange-500 hover:bg-orange-600">
+              ✨ 建立新專案
+            </button>
+          </div>
+          
+          <button onClick={() => navigate('join')} className="btn-secondary w-full py-3">
+            📥 加入專案
+          </button>
+          
+          <div className="mt-auto pt-8 text-center text-gray-400 text-sm">
+            <p>記憶體模式 - 重新整理會重置</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // ===== Create Project 頁面 =====
+    function CreateProject({ onDone }) {
+      const [mode, setMode] = useState('dinner');
+      const [name, setName] = useState('');
+      const [userName, setUserName] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [created, setCreated] = useState(null);
+      
+      const handleCreate = async (e) => {
+        e.preventDefault();
+        if (!name || !userName) return;
+        setLoading(true);
+        try {
+          const project = await api.createProject(name, 'TWD', mode, userName);
+          localStorage.setItem('splitease_project', project.projectId);
+          localStorage.setItem('splitease_participant', project.participantId);
+          setCreated(project);
+        } catch (error) {
+          alert('建立失敗');
+        }
+        setLoading(false);
+      }
+      
+      if (created) {
+        return (
+          <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-4">
+            <div className="card w-full text-center">
+              <h2 className="text-2xl font-bold text-green-600 mb-4">✅ 專案建立成功！</h2>
+              <p className="text-gray-600 mb-2">{mode === 'dinner' ? '🍜 晚餐模式' : '📊 完整模式'}</p>
+              <div className="bg-gray-100 p-3 rounded-lg mb-4">
+                <p className="text-sm text-gray-500 mb-1">邀請碼</p>
+                <p className="text-2xl font-bold text-gray-800">{created.inviteCode}</p>
+              </div>
+              <button onClick={() => onDone(created.projectId)} className="btn-primary w-full">
+                進入專案 →
+              </button>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="max-w-md mx-auto min-h-screen flex flex-col p-4">
+          <button onClick={() => navigate('')} className="text-gray-500 mb-4">← 返回</button>
+          <h2 className="text-2xl font-bold mb-6">建立新專案</h2>
+          
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">選擇模式</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setMode('dinner')} className={`p-4 rounded-xl border-2 ${mode === 'dinner' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}>
+                  <span className="text-2xl block mb-1">🍜</span>
+                  <span className="font-medium">晚餐模式</span>
+                </button>
+                <button type="button" onClick={() => setMode('full')} className={`p-4 rounded-xl border-2 ${mode === 'full' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}>
+                  <span className="text-2xl block mb-1">📊</span>
+                  <span className="font-medium">完整模式</span>
+                </button>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">專案名稱</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="例如：晚餐分帳" className="input" />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">你的暱稱</label>
+              <input type="text" value={userName} onChange={e => setUserName(e.target.value)} placeholder="輸入你的名字" className="input" />
+            </div>
+            
+            <button type="submit" disabled={loading || !name || !userName} className={`btn-primary w-full py-3 ${mode === 'dinner' ? 'bg-orange-500 hover:bg-orange-600' : ''}`}>
+              {loading ? '建立中...' : '建立專案'}
+            </button>
+          </form>
+        </div>
+      );
+    }
+    
+    // ===== Join Project 頁面 =====
+    function JoinProject() {
+      const [inviteCode, setInviteCode] = useState('');
+      const [userName, setUserName] = useState('');
+      const [loading, setLoading] = useState(false);
+      
+      const handleJoin = async (e) => {
+        e.preventDefault();
+        if (!inviteCode || !userName) return;
+        setLoading(true);
+        try {
+          const projectData = await api.joinByCode(inviteCode.toUpperCase());
+          const participant = await api.addParticipant(projectData.projectId, userName);
+          localStorage.setItem('splitease_project', projectData.projectId);
+          localStorage.setItem('splitease_participant', participant.participantId);
+          navigate(projectData.projectId);
+        } catch (error) {
+          alert('邀請碼無效');
+        }
+        setLoading(false);
+      }
+      
+      return (
+        <div className="max-w-md mx-auto min-h-screen flex flex-col p-4">
+          <button onClick={() => navigate('')} className="text-gray-500 mb-4">← 返回</button>
+          <h2 className="text-2xl font-bold mb-6">加入專案</h2>
+          
+          <form onSubmit={handleJoin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">邀請碼</label>
+              <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())} placeholder="輸入 6 位數" maxLength={6} className="input text-center text-xl tracking-widest" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">你的暱稱</label>
+              <input type="text" value={userName} onChange={e => setUserName(e.target.value)} placeholder="輸入你的名字" className="input" />
+            </div>
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+              {loading ? '加入中...' : '加入專案'}
+            </button>
+          </form>
+        </div>
+      );
+    }
+    
+    // ===== Project Dashboard =====
+    function ProjectDashboard({ projectId }) {
+      const [project, setProject] = useState(null);
+      const [participants, setParticipants] = useState([]);
+      const [expenses, setExpenses] = useState([]);
+      const [balance, setBalance] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const currentParticipantId = localStorage.getItem('splitease_participant');
+      
+      const fetchData = async () => {
+        try {
+          const [projectData, participantsData, expensesData] = await Promise.all([
+            api.getProject(projectId),
+            api.getParticipants(projectId),
+            api.getExpenses(projectId)
+          ]);
+          setProject(projectData);
+          setParticipants(participantsData);
+          setExpenses(expensesData);
+          
+          if (projectData.mode === 'dinner') {
+            const balanceData = await api.getDinnerBalance(projectId);
+            setBalance(balanceData);
+          }
+        } catch (error) {
+          alert('專案不存在');
+          navigate('');
+        }
+        setLoading(false);
+      };
+      
+      useEffect(() => { fetchData(); }, [projectId]);
+      
+      const getCurrentUserOwe = () => {
+        if (!balance || !currentParticipantId) return 0;
+        const userBalance = balance.balances.find(b => b.participantId === currentParticipantId);
+        return userBalance?.balance || 0;
+      };
+      
+      if (loading) return <div className="text-center py-8">載入中...</div>;
+      
+      const isDinnerMode = project?.mode === 'dinner';
+      
+      return (
+        <div className="max-w-md mx-auto min-h-screen flex flex-col">
+          <div className={`${isDinnerMode ? 'bg-orange-500' : 'bg-primary'} text-white p-4`}>
+            <button onClick={() => navigate('')} className="text-white/80 text-sm mb-2">← 返回首頁</button>
+            <h1 className="text-2xl font-bold">{project?.name}</h1>
+            <p className="text-white/80 text-sm">邀請碼：{project?.inviteCode}</p>
+          </div>
+          
+          {isDinnerMode && balance && (
+            <div className="bg-orange-50 p-4 border-b border-orange-100">
+              <p className="text-sm text-orange-600">你的當前欠款</p>
+              <p className="text-3xl font-bold text-orange-600">NT$ {getCurrentUserOwe().toLocaleString()}</p>
+            </div>
+          )}
+          
+          <div className="p-4">
+            <div className="card mb-4">
+              <h3 className="font-semibold text-gray-600 mb-2">👥 參與者 ({participants.length})</h3>
+              <div className="flex flex-wrap gap-2">
+                {participants.map(p => (
+                  <div key={p.participantId} className={`px-3 py-1 rounded-full text-sm ${p.isHost ? 'bg-orange-100 text-orange-700' : 'bg-gray-100'}`}>
+                    {p.name} {p.isHost && '👑'}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {isDinnerMode ? (
+              <>
+                <div className="flex gap-2 mb-4">
+                  <button onClick={() => navigate(projectId + '/dinner')} className="flex-1 btn-primary py-3 bg-orange-500 hover:bg-orange-600">
+                    🍜 新增點單
+                  </button>
+                  <button onClick={() => navigate(projectId + '/balance')} className="flex-1 btn-secondary py-3">
+                    📋 欠款
+                  </button>
+                </div>
+                
+                <div className="card">
+                  <h3 className="font-semibold text-gray-600 mb-2">📝 點單記錄</h3>
+                  {expenses.length === 0 ? (
+                    <p className="text-gray-400 text-center py-4">尚無點單記錄</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {expenses.map(expense => (
+                        <div key={expense.expenseId} className="border-b border-gray-100 pb-2">
+                          <p className="text-sm text-gray-500">{new Date(expense.createdAt).toLocaleString('zh-TW')}</p>
+                          <p className="font-bold">NT$ {expense.items.reduce((s, i) => s + i.totalOwed, 0).toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="card">
+                <p className="text-gray-400 text-center py-4">完整模式開發中...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // ===== Add Dinner Order =====
+    function AddDinnerOrder({ projectId }) {
+      const [participants, setParticipants] = useState([]);
+      const [deliveryFee, setDeliveryFee] = useState('');
+      const [items, setItems] = useState({});
+      const [loading, setLoading] = useState(false);
+      
+      useEffect(() => {
+        api.getParticipants(projectId).then(data => {
+          setParticipants(data);
+          const initial = {};
+          data.forEach(p => initial[p.participantId] = '');
+          setItems(initial);
+        });
+      }, [projectId]);
+      
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        const hasItem = Object.values(items).some(v => v && parseFloat(v) > 0);
+        if (!hasItem) { alert('請輸入至少一人金額'); return; }
+        setLoading(true);
+        try {
+          const orderItems = participants.map(p => ({
+            participantId: p.participantId,
+            amount: parseFloat(items[p.participantId]) || 0
+          })).filter(i => i.amount > 0);
+          
+          await api.addDinnerExpense(projectId, { deliveryFee: parseFloat(deliveryFee) || 0, items: orderItems });
+          alert('✅ 點單已記錄');
+          navigate(projectId);
+        } catch (error) {
+          alert('記錄失敗');
+        }
+        setLoading(false);
+      }
+      
+      const deliveryPerPerson = (parseFloat(deliveryFee) || 0) / participants.length;
+      
+      return (
+        <div className="max-w-md mx-auto min-h-screen flex flex-col">
+          <div className="bg-orange-500 text-white p-4">
+            <button onClick={() => navigate(projectId)} className="text-white/80 text-sm mb-2">← 返回</button>
+            <h1 className="text-xl font-bold">🍜 新增點單</h1>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <div className="card">
+              <label className="block text-sm font-medium text-gray-700 mb-1">🚴 外送費（均分）</label>
+              <input type="number" value={deliveryFee} onChange={e => setDeliveryFee(e.target.value)} placeholder="0" className="input" />
+            </div>
+            
+            <div className="card">
+              <label className="block text-sm font-medium text-gray-700 mb-2">🍽️ 點餐金額</label>
+              {participants.map(p => (
+                <div key={p.participantId} className="flex items-center gap-3 mb-3">
+                  <span className="flex-1 font-medium">{p.name} {p.isHost && '👑'}</span>
+                  <input type="number" value={items[p.participantId]} onChange={e => setItems({...items, [p.participantId]: e.target.value})} placeholder="0" className="input w-28 text-right" />
+                </div>
+              ))}
+            </div>
+            
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 bg-orange-500 hover:bg-orange-600">
+              {loading ? '儲存中...' : '✅ 確認記錄'}
+            </button>
+          </form>
+        </div>
+      );
+    }
+    
+    // ===== Dinner Balance =====
+    function DinnerBalance({ projectId }) {
+      const [balance, setBalance] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const currentParticipantId = localStorage.getItem('splitease_participant');
+      
+      useEffect(() => {
+        api.getDinnerBalance(projectId).then(data => setBalance(data)).finally(() => setLoading(false));
+      }, [projectId]);
+      
+      const handleSettle = async () => {
+        if (!confirm('確定要結清嗎？會清除所有記錄。')) return;
+        setLoading(true);
+        try {
+          await api.settleAll(projectId);
+          alert('✅ 已結清');
+          navigate(projectId);
+        } catch (error) {
+          alert('結清失敗');
+        }
+        setLoading(false);
+      }
+      
+      if (loading) return <div className="text-center py-8">載入中...</div>;
+      
+      const host = balance?.balances.find(b => b.isHost);
+      const members = balance?.balances.filter(b => !b.isHost) || [];
+      
+      return (
+        <div className="max-w-md mx-auto min-h-screen flex flex-col">
+          <div className="bg-orange-500 text-white p-4">
+            <button onClick={() => navigate(projectId)} className="text-white/80 text-sm mb-2">← 返回</button>
+            <h1 className="text-xl font-bold">📋 欠款明細</h1>
+          </div>
+          
+          <div className="p-4">
+            <div className="card mb-4 bg-orange-50 border border-orange-200">
+              <p className="text-sm text-orange-600">累積總消費</p>
+              <p className="text-2xl font-bold text-orange-600">NT$ {balance?.totalExpenses?.toLocaleString() || 0}</p>
+            </div>
+            
+            <div className="card mb-4">
+              {host && (
+                <div className="flex justify-between py-3 border-b">
+                  <span className="font-medium">{host.name} 👑</span>
+                  <span className="text-green-600">+NT$ {host.totalOwed.toLocaleString()}</span>
+                </div>
+              )}
+              {members.map(m => (
+                <div key={m.participantId} className={`flex justify-between py-3 ${m.balance > 0 ? 'bg-red-50 -mx-3 px-3 rounded' : ''}`}>
+                  <span className={`font-medium ${m.participantId === currentParticipantId ? 'text-orange-600' : ''}`}>
+                    {m.name} {m.participantId === currentParticipantId && '(你)'}
+                  </span>
+                  <span className={m.balance > 0 ? 'text-red-600' : 'text-gray-400'}>
+                    {m.balance > 0 ? '-' : ''}NT$ {Math.abs(m.balance).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+            
+            <button onClick={handleSettle} className="btn-primary w-full py-3 bg-green-500 hover:bg-green-600">
+              💚 一鍵結清
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // ===== 路由 =====
+    let currentPath = '';
+    
+    function navigate(path) {
+      currentPath = path;
+      render();
+    }
+    
+    function App() {
+      const projectId = localStorage.getItem('splitease_project');
+      
+      if (!projectId && !currentPath) return <Home />;
+      if (currentPath === 'create') return <CreateProject onDone={navigate} />;
+      if (currentPath === 'join') return <JoinProject />;
+      if (currentPath && !/^\//.test(currentPath)) return <ProjectDashboard projectId={currentPath} />;
+      if (currentPath) {
+        const id = currentPath.split('/')[1];
+        if (currentPath.includes('/dinner')) return <AddDinnerOrder projectId={id} />;
+        if (currentPath.includes('/balance')) return <DinnerBalance projectId={id} />;
+        return <ProjectDashboard projectId={id} />;
+      }
+      
+      return <Home />;
+    }
+    
+    function render() {
+      ReactDOM.render(<App />, document.getElementById('app'));
+    }
+    
+    render();
+  </script>
+  
+  <style>
+    .btn-primary { @apply bg-primary text-white font-bold py-3 px-4 rounded-lg w-full transition-all; }
+    .btn-primary:hover { @apply shadow-lg; }
+    .btn-primary:disabled { @apply opacity-50 cursor-not-allowed; }
+    .btn-secondary { @apply bg-gray-100 text-gray-700 font-bold py-3 px-4 rounded-lg w-full transition-all; }
+    .btn-secondary:hover { @apply bg-gray-200; }
+    .card { @apply bg-white rounded-xl p-4 shadow-sm; }
+    .input { @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent; }
+  </style>
+</body>
+</html>
