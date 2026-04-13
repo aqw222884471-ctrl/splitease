@@ -12,7 +12,6 @@
     .card{background:white;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
     .btn{width:100%;padding:16px;border:none;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;touch-action:manipulation}
     .btn-main{background:#6366f1;color:white;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:380px;box-shadow:0 4px 12px rgba(99,102,241,0.4)}
-    .btn-main:active{transform:translateX(-50%) scale(0.98)}
     .btn-sec{background:#e2e8f0;color:#475569}
     .btn-danger{background:#ef4444;color:white}
     .input{width:100%;padding:16px;border:2px solid #e2e8f0;border-radius:12px;font-size:18px;margin-bottom:16px}
@@ -23,10 +22,7 @@
     .positive{color:#ef4444;font-weight:600}
     .negative{color:#22c55e;font-weight:600}
     .label{font-size:14px;color:#64748b;margin-bottom:8px;display:block}
-    .big-btn{font-size:22px;padding:24px}
-    .sub{font-size:14px;color:#94a3b8}
     .money{font-size:32px;font-weight:700;color:#1e293b}
-    .result{background:#f8fafc;border-radius:12px;padding:16px;margin-top:16px}
   </style>
 </head>
 <body>
@@ -37,7 +33,7 @@
     const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
     
     let step='home',project=null,users=[],exps=[],mode='AA';
-    let amount='',payer='',desc='',tempUser='',addName='';
+    let amount='',payer='',desc='',tempUser='',projName='';
     
     function getProjects(){
       return Object.keys(localStorage).filter(k=>k.startsWith('splitease_proj_')).map(k=>load(k.replace('splitease_',''))).filter(p=>p).sort((a,b)=>new Date(b.t)-new Date(a.t));
@@ -51,14 +47,13 @@
         app.innerHTML=`
           <div style="text-align:center;padding:40px 0">
             <h1 style="font-size:32px;font-weight:700;color:#6366f1">SplitEase</h1>
-            <p class="sub">簡單分帳</p>
           </div>
           ${list.length?list.map(p=>`<div class="card" style="cursor:pointer" onclick="openProj('${p.id}')">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span style="font-size:20px;font-weight:600">${p.name}</span>
               <span style="background:${p.mode==='AA'?'#fee2e2':'#dcfce7'};color:${p.mode==='AA'?'#ef4444':'#22c55e'};padding:4px 12px;border-radius:8px;font-size:14px;font-weight:600">${p.mode}</span>
             </div>
-            <p class="sub" style="margin-top:8px">${p.users.length}人 · NT$ ${p.exs.reduce((s,e)=>s+e.amount,0)}</p>
+            <p style="color:#94a3b8;font-size:14px;margin-top:8px">${p.users.length}人 · NT$ ${p.exs.reduce((s,e)=>s+e.amount,0)}</p>
           </div>`).join(''):''}
           <button class="btn btn-sec" style="margin-top:20px" onclick="goNew()">＋ 新增專案</button>
         `;
@@ -67,50 +62,46 @@
       
       if(step==='new'){
         app.innerHTML=`
-          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goHome()">← 返回</button>
+          <button style="color:#94a3b8;border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goHome()">← 返回</button>
           <h2 class="title" style="margin-bottom:24px">新增專案</h2>
           
           <label class="label">專案名稱</label>
-          <input class="input" placeholder="例如：今晚晚餐" id="nameInput" style="font-size:20px"/>
+          <input class="input" placeholder="例如：今晚晚餐" id="nameInput" value="${projName}" oninput="projName=this.value;render()"/>
           
           <label class="label">分帳方式</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
             <div class="card" style="cursor:pointer;text-align:center;${mode==='AA'?'border:2px solid #6366f1':''}" onclick="mode='AA';render()">
-              <div style="font-size:24px;margin-bottom:8px">✂️</div>
-              <div style="font-weight:600">大家平分</div>
-              <p class="sub">一人先付錢，其他人平均攤</p>
+              <div style="font-size:24px;margin-bottom:4px">✂️</div>
+              <div style="font-weight:600">AA</div>
             </div>
             <div class="card" style="cursor:pointer;text-align:center;${mode==='AB'?'border:2px solid #6366f1':''}" onclick="mode='AB';render()">
-              <div style="font-size:24px;margin-bottom:8px">📝</div>
-              <div style="font-weight:600">各付各的</div>
-              <p class="sub">每個人付自己的份</p>
+              <div style="font-size:24px;margin-bottom:4px">📝</div>
+              <div style="font-weight:600">AB</div>
             </div>
           </div>
           
-          <label class="label">成員（先加幾個人）</label>
+          <label class="label">成員</label>
           <div style="display:flex;gap:8px;margin-bottom:12px">
-            <input class="input flex-1" placeholder="輸入名字" id="userInput" style="margin:0" oninput="tempUser=this.value"/>
+            <input class="input flex-1" placeholder="輸入名字" id="userInput" value="${tempUser}" oninput="tempUser=this.value" style="margin:0"/>
             <button class="btn" style="width:60px;background:#e2e8f0" onclick="addUser()">+</button>
           </div>
           <div style="margin-bottom:24px">${users.map(u=>`<span class="tag" style="cursor:pointer" onclick="removeUser('${u.id}')">${u.name} ×</span>`).join('')}</div>
         `;
-        app.innerHTML+=`<button class="btn btn-main" id="createBtn" onclick="createProject()" disabled>建立專案</button>`;
-        document.getElementById('nameInput').addEventListener('input',function(){
-          const btn=document.getElementById('createBtn');
-          btn.disabled=!this.value;
-          btn.style.background=this.value?'#6366f1':'#94a3b8';
-        });
+        app.innerHTML+=`<button class="btn btn-main" id="createBtn" onclick="createProject()">建立專案</button>`;
+        const btn=document.getElementById('createBtn');
+        btn.disabled=!projName;
+        btn.style.background=projName?'#6366f1':'#94a3b8';
         return;
       }
       
       if(step==='project'){
         const total=exps.reduce((s,e)=>s+e.amount,0);
         app.innerHTML=`
-          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goHome()">← 返回</button>
+          <button style="color:#94a3b8;border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goHome()">← 返回</button>
           
           <div class="card" style="background:${mode==='AA'?'#fef2f2':'#f0fdf4'};border-left:4px solid ${mode==='AA'?'#ef4444':'#22c55e'}">
             <div style="font-size:24px;font-weight:700">${project?.name||''}</div>
-            <p class="sub">${users.length}人 · ${mode}</p>
+            <p style="color:#94a3b8;font-size:14px">${users.length}人 · ${mode}</p>
           </div>
           
           <div class="card">
@@ -123,31 +114,19 @@
                 <span>${e.desc}</span>
                 <span style="font-weight:600">${e.amount}</span>
               </div>
-              <p class="sub">${e.payer||'大家分'} · ${new Date(e.t).toLocaleDateString()}</p>
-            </div>`).join(''):'<p class="sub" style="text-align:center;padding:20px">尚無消費</p>'}
+              <p style="color:#94a3b8;font-size:14px">${e.payer?users.find(u=>u.id===e.payer)?.name+' 付':'平均分'} · ${new Date(e.t).toLocaleDateString()}</p>
+            </div>`).join(''):'<p style="color:#94a3b8;text-align:center;padding:20px">尚無消費</p>'}
           </div>
         `;
         
-        if(mode==='AA'){
-          app.innerHTML+=`<button class="btn btn-main" onclick="goAddAA()">＋ 新增一筆</button>`;
-        }else{
-          app.innerHTML+=`<button class="btn btn-main" onclick="goAddAB()">＋ 新增一筆</button>`;
-        }
+        app.innerHTML+=`<button class="btn btn-main" onclick="goAdd()">＋ 新增一筆</button>`;
         return;
       }
       
-      if(step==='addAA'){
-        const payerArr=users.map(u=>u.id);
-        const currentPayer=payer;
-        
+      if(step==='add'){
         app.innerHTML=`
-          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
+          <button style="color:#94a3b8;border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
           <h2 class="title" style="margin-bottom:24px">新增一筆</h2>
-          
-          <label class="label"> ${mode==='AA'?'誰付錢':'誰吃了'}</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
-            ${users.map(u=>`<div class="tag ${payer===u.id?'active':''}" style="cursor:pointer;min-width:80px;text-align:center" onclick="payer='${u.id}';render()">${u.name}</div>`).join('')}
-          </div>
           
           <label class="label">消費項目</label>
           <input class="input" placeholder="例如：晚餐" id="descInput"/>
@@ -156,41 +135,23 @@
           <input class="input" placeholder="0" type="number" id="amountInput" style="font-size:32px"/>
         `;
         
-        const paid=users.reduce((s,u)=>s+(u.id===payer?parseFloat(amount)||0:0),0);
-        const split=users.length?(parseFloat(amount)||0)/users.length:0;
+        if(mode==='AA' && users.length>0){
+          app.innerHTML+=`<label class="label" style="margin-top:16px">誰付錢？（可選）</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+            ${users.map(u=>`<div class="tag ${payer===u.id?'active':''}" style="cursor:pointer" onclick="payer=payer===u.id?'':u.id;render()">${u.name}</div>`).join('')}
+          </div>`;
+        }
         
-        if(amount){
+        const split=(parseFloat(amount)||0)/users.length;
+        if(amount && users.length>0){
           app.innerHTML+=`
-            <div class="result">
-              <p class="sub">每人應付NT$ ${split.toFixed(0)}，除 ${payer?users.find(u=>u.id===payer)?.name:'?'} 外的其他人各給 NT$ ${split.toFixed(0)}</p>
+            <div style="background:#f8fafc;padding:16px;border-radius:12px">
+              <p style="color:#64748b;font-size:14px">每人 NT$ ${split.toFixed(0)}</p>
             </div>
           `;
         }
         
-        app.innerHTML+=`<button class="btn btn-main" onclick="saveAA()">儲存</button>`;
-        document.getElementById('amountInput').addEventListener('input',function(){
-          amount=this.value;render();
-        });
-        return;
-      }
-      
-      if(step==='addAB'){
-        app.innerHTML=`
-          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
-          <h2 class="title" style="margin-bottom:24px">新增一筆</h2>
-          
-          <label class="label">誰吃了？</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
-            ${users.map(u=>`<span class="tag" style="cursor:pointer" onclick="payer='${u.id}';render()">${u.name}</span>`).join('')}
-          </div>
-          
-          <label class="label">吃了什麼？</label>
-          <input class="input" placeholder="例如：牛肉麵" id="descInput"/>
-          
-          <label class="label">多少錢？</label>
-          <input class="input" placeholder="0" type="number" id="amountInput"/>
-        `;
-        app.innerHTML+=`<button class="btn btn-main" onclick="saveAB()">儲存</button>`;
+        app.innerHTML+=`<button class="btn btn-main" onclick="saveExpense()">儲存</button>`;
         return;
       }
       
@@ -205,15 +166,20 @@
               const p=users.find(u=>u.id===e.payer);
               if(p)bal[p.id]-=e.amount;
             }
+          }else{
+            if(e.payer){
+              const p=users.find(u=>u.id===e.payer);
+              if(p)bal[p.id]+=e.amount;
+            }
           }
         });
         
         app.innerHTML=`
-          <button class="sub" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
+          <button style="color:#94a3b8;border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="goProject()">← 返回</button>
           <h2 class="title" style="margin-bottom:24px">結欠</h2>
           
           <div class="card" style="text-align:center">
-            <p class="sub">總金額</p>
+            <p style="color:#64748b;font-size:14px">總金額</p>
             <p class="money">NT$ ${exps.reduce((s,e)=>s+e.amount,0)}</p>
           </div>
           
@@ -232,10 +198,9 @@
     }
     
     function goHome(){step='home';render();}
-    function goNew(){step='new';users=[];mode='AA';tempUser='';render();}
+    function goNew(){step='new';users=[];mode='AA';tempUser='';projName='';render();}
     function goProject(){step='project';render();}
-    function goAddAA(){step='addAA';amount='';payer='';desc='';render();}
-    function goAddAB(){step='addAB';amount='';payer='';desc='';render();}
+    function goAdd(){step='add';amount='';payer='';desc='';render();}
     function goBalance(){step='balance';render();}
     
     function addUser(){
@@ -252,9 +217,8 @@
     }
     
     function createProject(){
-      const name=document.getElementById('nameInput').value;
-      if(!name)return;
-      const proj={id:uid(),name,mode,users,exs:[],t:new Date().toISOString()};
+      if(!projName)return;
+      const proj={id:uid(),name:projName,mode,users,exs:[],t:new Date().toISOString()};
       save('proj_'+proj.id,proj);
       project=proj;
       step='project';
@@ -270,21 +234,11 @@
       render();
     }
     
-    function saveAA(){
+    function saveExpense(){
       const desc=document.getElementById('descInput').value;
       const amount=document.getElementById('amountInput').value;
       if(!desc||!amount)return;
-      exps.push({id:uid(),desc,amount:parseFloat(amount),payer,t:new Date().toISOString()});
-      project.exs=exps;
-      save('proj_'+project.id,project);
-      goProject();
-    }
-    
-    function saveAB(){
-      const desc=document.getElementById('descInput').value;
-      const amount=document.getElementById('amountInput').value;
-      if(!desc||!amount||!payer)return;
-      exps.push({id:uid(),desc,amount:parseFloat(amount),payer,t:new Date().toISOString()});
+      exps.push({id:uid(),desc,amount:parseFloat(amount),payer:payer||null,t:new Date().toISOString()});
       project.exs=exps;
       save('proj_'+project.id,project);
       goProject();
