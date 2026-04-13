@@ -5,6 +5,8 @@ import JoinProject from './pages/JoinProject'
 import ProjectDashboard from './pages/ProjectDashboard'
 import AddExpense from './pages/AddExpense'
 import Settlement from './pages/Settlement'
+import AddDinnerOrder from './pages/AddDinnerOrder'
+import DinnerBalance from './pages/DinnerBalance'
 
 function App() {
   return (
@@ -17,6 +19,9 @@ function App() {
           <Route path="/project/:projectId" element={<ProjectDashboard />} />
           <Route path="/project/:projectId/expense" element={<AddExpense />} />
           <Route path="/project/:projectId/settlement" element={<Settlement />} />
+          {/* 晚餐模式專用 */}
+          <Route path="/project/:projectId/dinner" element={<AddDinnerOrder />} />
+          <Route path="/project/:projectId/balance" element={<DinnerBalance />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

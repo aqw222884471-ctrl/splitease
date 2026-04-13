@@ -3,10 +3,16 @@ import express from 'express'
 import cors from 'cors'
 import { v4 as uuidv4 } from 'uuid'
 import { google } from 'googleapis'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 app.use(cors())
 app.use(express.json())
+app.use(express.static(path.join(__dirname, '../')))
 
 // CORS 設定
 const corsOptions = {
@@ -18,7 +24,6 @@ app.use(cors(corsOptions))
 
 // Google Sheets 配置
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-const spreadsheetId = process.env.GOOGLE_SHEET_ID
 
 let auth
 try {
@@ -46,24 +51,42 @@ function generateInviteCode() {
 
 // API 端點
 
-// 1. 建立新專案
+// 1. 建立新專案（支援模式選擇）
 app.post('/api/projects', (req, res) => {
-  const { name, currency = 'TWD' } = req.body
+  const { name, currency = 'TWD', mode = 'full', hostName } = req.body
   const projectId = uuidv4()
   const inviteCode = generateInviteCode()
 
   inMemoryDB.projects[projectId] = {
     projectId,
     name,
+    mode,
     inviteCode,
     currency,
     createdAt: new Date().toISOString()
   }
-  inMemoryDB.participants[projectId] = []
-  inMemoryDB.expenses[projectId] = []
-  inMemoryDB.settlements[projectId] = []
 
-  res.json({ projectId, inviteCode, name })
+  const hostParticipant = {
+    participantId: uuidv4(),
+    name: hostName,
+    isHost: true,
+    joinedAt: new Date().toISOString()
+  }
+  inMemoryDB.participants[projectId] = [hostParticipant]
+  inMemoryDB.expenses[projectId] = []
+
+  if (mode === 'dinner') {
+    inMemoryDB.projects[projectId].hostId = hostParticipant.participantId
+    inMemoryDB.projects[projectId].dinnerBalance = {}
+  }
+
+  res.json({ 
+    projectId, 
+    inviteCode, 
+    name,
+    mode,
+    participantId: hostParticipant.participantId 
+  })
 })
 
 // 2. 取得專案資訊
@@ -83,7 +106,11 @@ app.get('/api/projects/join/:inviteCode', (req, res) => {
   if (!project) {
     return res.status(404).json({ error: '邀請碼無效' })
   }
-  res.json({ projectId: project.projectId, name: project.name })
+  res.json({ 
+    projectId: project.projectId, 
+    name: project.name,
+    mode: project.mode 
+  })
 })
 
 // 4. 新增參與者
@@ -98,6 +125,7 @@ app.post('/api/projects/:projectId/participants', (req, res) => {
   const participant = {
     participantId: uuidv4(),
     name,
+    isHost: false,
     joinedAt: new Date().toISOString()
   }
   
@@ -112,23 +140,48 @@ app.get('/api/projects/:projectId/participants', (req, res) => {
   res.json(participants)
 })
 
-// 6. 新增支出
-app.post('/api/projects/:projectId/expenses', (req, res) => {
+// 6. 新增晚餐模式支出
+app.post('/api/projects/:projectId/dinner-expenses', (req, res) => {
   const { projectId } = req.params
-  const { payerId, description, amount, splitType = 'average', splitData = {} } = req.body
+  const { deliveryFee = 0, items, createdBy } = req.body
 
-  if (!inMemoryDB.projects[projectId]) {
+  const project = inMemoryDB.projects[projectId]
+  if (!project) {
     return res.status(404).json({ error: '專案不存在' })
   }
 
+  if (project.mode !== 'dinner') {
+    return res.status(400).json({ error: '此專案不是晚餐模式' })
+  }
+
+  const participants = inMemoryDB.participants[projectId]
+  const deliveryPerPerson = deliveryFee / participants.length
+
+  const expenseItems = items.map(item => {
+    const amount = parseFloat(item.amount)
+    const totalOwed = amount + deliveryPerPerson
+    
+    if (!project.dinnerBalance) project.dinnerBalance = {}
+    if (!project.dinnerBalance[item.participantId]) {
+      project.dinnerBalance[item.participantId] = 0
+    }
+    project.dinnerBalance[item.participantId] += totalOwed
+
+    return {
+      participantId: item.participantId,
+      amount: amount,
+      deliveryShare: deliveryPerPerson,
+      totalOwed: totalOwed
+    }
+  })
+
   const expense = {
     expenseId: uuidv4(),
-    payerId,
-    description,
-    amount: parseFloat(amount),
-    splitType,
-    splitData,
-    createdAt: new Date().toISOString()
+    mode: 'dinner',
+    deliveryFee: parseFloat(deliveryFee),
+    items: expenseItems,
+    createdAt: new Date().toISOString(),
+    createdBy: createdBy || 'unknown'
   }
 
   inMemoryDB.expenses[projectId].push(expense)
@@ -142,107 +195,70 @@ app.get('/api/projects/:projectId/expenses', (req, res) => {
   res.json(expenses)
 })
 
-// 8. 刪除支出
-app.delete('/api/projects/:projectId/expenses/:expenseId', (req, res) => {
-  const { projectId, expenseId } = req.params
-  const expenses = inMemoryDB.expenses[projectId] || []
-  const index = expenses.findIndex(e => e.expenseId === expenseId)
-  
-  if (index === -1) {
-    return res.status(404).json({ error: '支出不存在' })
-  }
-  
-  expenses.splice(index, 1)
-  res.json({ success: true })
-})
-
-// 9. 計算結算
-app.get('/api/projects/:projectId/settlement', (req, res) => {
+// 8. 晚餐模式餘額
+app.get('/api/projects/:projectId/balance', (req, res) => {
   const { projectId } = req.params
+  const project = inMemoryDB.projects[projectId]
+  
+  if (!project) {
+    return res.status(404).json({ error: '專案不存在' })
+  }
+
   const participants = inMemoryDB.participants[projectId] || []
   const expenses = inMemoryDB.expenses[projectId] || []
-
-  const paidMap = {}
-  participants.forEach(p => { paidMap[p.participantId] = 0 })
   
-  expenses.forEach(e => {
-    if (paidMap[e.payerId] !== undefined) {
-      paidMap[e.payerId] += e.amount
-    }
-  })
-
-  const shareMap = {}
-  participants.forEach(p => { shareMap[p.participantId] = 0 })
-  
-  expenses.forEach(e => {
-    if (e.splitType === 'average') {
-      const share = e.amount / participants.length
-      participants.forEach(p => {
-        shareMap[p.participantId] += share
-      })
-    } else if (e.splitType === 'custom' && e.splitData) {
-      Object.entries(e.splitData).forEach(([pid, ratio]) => {
-        if (shareMap[pid] !== undefined) {
-          shareMap[pid] += e.amount * ratio
-        }
-      })
-    }
-  })
-
-  const balances = {}
+  const balance = {}
   participants.forEach(p => {
-    balances[p.participantId] = paidMap[p.participantId] - shareMap[p.participantId]
-  })
-
-  const settlements = []
-  const debtors = []
-  const creditors = []
-
-  participants.forEach(p => {
-    if (balances[p.participantId] < -0.01) {
-      debtors.push({ id: p.participantId, amount: -balances[p.participantId] })
-    } else if (balances[p.participantId] > 0.01) {
-      creditors.push({ id: p.participantId, amount: balances[p.participantId] })
+    balance[p.participantId] = {
+      name: p.name,
+      isHost: p.isHost,
+      totalOwed: 0,
+      totalPaid: 0
     }
   })
 
-  let i = 0, j = 0
-  while (i < debtors.length && j < creditors.length) {
-    const debtor = debtors[i]
-    const creditor = creditors[j]
-    const amount = Math.min(debtor.amount, creditor.amount)
-    
-    if (amount > 0.01) {
-      settlements.push({
-        fromId: debtor.id,
-        toId: creditor.id,
-        amount: Math.round(amount * 100) / 100
-      })
-    }
-    
-    debtor.amount -= amount
-    creditor.amount -= amount
-    
-    if (debtor.amount < 0.01) i++
-    if (creditor.amount < 0.01) j++
+  if (project.mode === 'dinner' && project.dinnerBalance) {
+    participants.forEach(p => {
+      balance[p.participantId].totalOwed = project.dinnerBalance[p.participantId] || 0
+      balance[p.participantId].totalPaid = project.dinnerBalance[p.participantId] || 0
+    })
   }
 
+  const balanceList = Object.entries(balance).map(([participantId, data]) => ({
+    participantId,
+    ...data,
+    balance: data.isHost ? data.totalPaid - data.totalOwed : data.totalOwed - data.totalPaid
+  }))
+
   res.json({
-    balances: participants.map(p => ({
-      participantId: p.participantId,
-      name: p.name,
-      paid: Math.round(paidMap[p.participantId] * 100) / 100,
-      shouldPay: Math.round(shareMap[p.participantId] * 100) / 100,
-      balance: Math.round(balances[p.participantId] * 100) / 100
-    })),
-    settlements
+    mode: project.mode,
+    hostId: project.hostId,
+    balances: balanceList,
+    totalExpenses: expenses.reduce((sum, e) => {
+      if (e.mode === 'dinner') {
+        return sum + e.items.reduce((s, i) => s + i.totalOwed, 0)
+      }
+      return sum + (e.amount || 0)
+    }, 0)
   })
 })
 
-// 10. 清除所有結算記錄（結清）
+// 9. 結清
 app.post('/api/projects/:projectId/settle', (req, res) => {
   const { projectId } = req.params
-  inMemoryDB.expenses[projectId] = []
+  const project = inMemoryDB.projects[projectId]
+  
+  if (!project) {
+    return res.status(404).json({ error: '專案不存在' })
+  }
+
+  if (project.mode === 'dinner') {
+    inMemoryDB.expenses[projectId] = inMemoryDB.expenses[projectId].filter(e => e.mode !== 'dinner')
+    project.dinnerBalance = {}
+  } else {
+    inMemoryDB.expenses[projectId] = []
+  }
+  
   res.json({ success: true, message: '已結清所有帳務' })
 })
 
@@ -254,5 +270,5 @@ app.get('/health', (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`🚀 SplitEase API 運行在 port ${PORT}`)
+  console.log(`🚀 SplitEase 運行在 http://localhost:${PORT}`)
 })

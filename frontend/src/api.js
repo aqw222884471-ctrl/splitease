@@ -3,9 +3,9 @@ import axios from 'axios'
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const api = {
-  // Create project
-  createProject: async (name, currency = 'TWD') => {
-    const res = await axios.post(`${API_BASE}/api/projects`, { name, currency })
+  // Create project (支援模式選擇)
+  createProject: async (name, currency = 'TWD', mode = 'full', hostName) => {
+    const res = await axios.post(`${API_BASE}/api/projects`, { name, currency, mode, hostName })
     return res.data
   },
 
@@ -33,7 +33,15 @@ const api = {
     return res.data
   },
 
-  // Add expense
+  // Add dinner expense (晚餐模式)
+  addDinnerExpense: async (projectId, { deliveryFee = 0, items, createdBy }) => {
+    const res = await axios.post(`${API_BASE}/api/projects/${projectId}/dinner-expenses`, {
+      deliveryFee, items, createdBy
+    })
+    return res.data
+  },
+
+  // Add expense (完整模式)
   addExpense: async (projectId, { payerId, description, amount, splitType = 'average', splitData = {} }) => {
     const res = await axios.post(`${API_BASE}/api/projects/${projectId}/expenses`, {
       payerId, description, amount, splitType, splitData
@@ -53,9 +61,10 @@ const api = {
     return res.data
   },
 
-  // Get all projects (from localStorage for now)
-  getAllProjects: () => {
-    return []
+  // Get dinner balance (晚餐模式餘額)
+  getDinnerBalance: async (projectId) => {
+    const res = await axios.get(`${API_BASE}/api/projects/${projectId}/balance`)
+    return res.data
   },
 
   // Get settlement

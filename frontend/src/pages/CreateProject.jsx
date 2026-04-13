@@ -4,6 +4,7 @@ import api from '../api'
 
 export default function CreateProject() {
   const navigate = useNavigate()
+  const [mode, setMode] = useState('dinner')
   const [name, setName] = useState('')
   const [userName, setUserName] = useState('')
   const [currency, setCurrency] = useState('TWD')
@@ -16,14 +17,14 @@ export default function CreateProject() {
     
     setLoading(true)
     try {
-      const project = await api.createProject(name, currency)
-      const participant = await api.addParticipant(project.projectId, userName)
+      const project = await api.createProject(name, currency, mode, userName)
       
       localStorage.setItem('splitease_project', project.projectId)
-      localStorage.setItem('splitease_participant', participant.participantId)
+      localStorage.setItem('splitease_participant', project.participantId)
       
-      setCreated({ ...project, participantId: participant.participantId })
+      setCreated(project)
     } catch (error) {
+      console.error(error)
       alert('建立失敗，請稍後再試')
     }
     setLoading(false)
@@ -34,7 +35,14 @@ export default function CreateProject() {
       <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-4">
         <div className="card w-full text-center">
           <h2 className="text-2xl font-bold text-success mb-4">✅ 專案建立成功！</h2>
-          
+          <p className="text-gray-600 mb-2">
+            {mode === 'dinner' ? '🍜 晚餐模式' : '📊 完整模式'}
+          </p>
+          <div className="bg-gray-100 p-3 rounded-lg mb-4">
+            <p className="text-sm text-gray-500 mb-1">邀請碼</p>
+            <p className="text-2xl font-bold text-gray-800">{created.inviteCode}</p>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">將邀請碼分享給朋友一起記帳</p>
           <button 
             onClick={() => navigate(`/project/${created.projectId}`)}
             className="btn-primary w-full"
@@ -53,13 +61,46 @@ export default function CreateProject() {
       <h2 className="text-2xl font-bold mb-6">建立新專案</h2>
       
       <form onSubmit={handleCreate} className="space-y-4">
+        {/* 模式選擇 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">選擇模式</label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setMode('dinner')}
+              className={`p-4 rounded-xl border-2 transition-all ${
+                mode === 'dinner' 
+                  ? 'border-orange-500 bg-orange-50' 
+                  : 'border-gray-200'
+              }`}
+            >
+              <span className="text-2xl block mb-1">🍜</span>
+              <span className="font-medium">晚餐模式</span>
+              <p className="text-xs text-gray-500 mt-1">快速度記、週結月結</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('full')}
+              className={`p-4 rounded-xl border-2 transition-all ${
+                mode === 'full' 
+                  ? 'border-indigo-500 bg-indigo-50' 
+                  : 'border-gray-200'
+              }`}
+            >
+              <span className="text-2xl block mb-1">📊</span>
+              <span className="font-medium">完整模式</span>
+              <p className="text-xs text-gray-500 mt-1">旅行分攤複雜分帳</p>
+            </button>
+          </div>
+        </div>
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">專案名稱</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="例如：東京之旅、聚餐分帳"
+            placeholder={mode === 'dinner' ? '例如：晚餐分帳' : '例如：東京之旅'}
             className="input"
           />
         </div>
@@ -92,7 +133,9 @@ export default function CreateProject() {
         <button 
           type="submit" 
           disabled={loading || !name || !userName}
-          className="btn-primary w-full py-3"
+          className={`btn-primary w-full py-3 ${
+            mode === 'dinner' ? 'bg-orange-500 hover:bg-orange-600' : ''
+          }`}
         >
           {loading ? '建立中...' : '建立專案'}
         </button>
