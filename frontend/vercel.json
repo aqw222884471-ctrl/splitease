@@ -1,7 +1,10 @@
 {
-  "buildCommand": "echo 'Static build'",
-  "devCommand": "",
-  "installCommand": "echo 'No install needed'",
+  "buildCommand": "echo 'No build needed'",
+  "devCommand": "echo 'No dev server'",
+  "installCommand": "echo 'No install'",
   "framework": "static",
-  "outputDirectory": "."
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }
