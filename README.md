@@ -37,3 +37,4 @@ npm run dev
 
 請參考 `SPEC.md`<!-- deploy trigger -->
 <!-- force deploy Mon Apr 13 10:43:54 UTC 2026 -->
+<!-- redeploy Mon Apr 13 12:09:28 UTC 2026 -->
