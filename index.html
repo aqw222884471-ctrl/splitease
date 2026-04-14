@@ -48,8 +48,8 @@
     };
     
     // 本地儲存輔助
-    const load=k=>JSON.parse(localStorage.getItem('split_'+k)||'null');
-    const save=(k,v)=>localStorage.setItem('split_'+k,JSON.stringify(v));
+    const load=k=>JSON.parse(localStorage.getItem('split_g_'+k)||'null');
+    const save=(k,v)=>localStorage.setItem('split_g_'+k,JSON.stringify(v));
     function getLocalGroups(){return Object.keys(localStorage).filter(k=>k.startsWith('split_g_')).map(k=>load(k.replace('split_',''))).filter(g=>g).sort((a,b)=>b.created-a.created);}
     function getLocalGroup(id){return load('g_'+id);}
     function saveLocalGroup(g){save('g_'+g.id,g);}
