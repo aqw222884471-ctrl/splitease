@@ -35,7 +35,6 @@
   <script type="text/babel">
     const{useState,useEffect}=React;
     
-    // ===== API 服務 =====
     const API_URL = 'http://localhost:3000';
     
     const api = {
@@ -43,36 +42,25 @@
       getGroups: () => axios.get(`${API_URL}/groups`),
       getGroup: (id) => axios.get(`${API_URL}/groups/${id}`),
       deleteGroup: (id) => axios.delete(`${API_URL}/groups/${id}`),
-      addMember: (groupId, name) => axios.post(`${API_URL}/groups/${groupId}/members`, {name}),
       addBill: (groupId, data) => axios.post(`${API_URL}/groups/${groupId}/bills`, data),
       getBills: (groupId) => axios.get(`${API_URL}/groups/${groupId}/bills`),
       getSettlement: (groupId) => axios.get(`${API_URL}/groups/${groupId}/settlement`),
       settleGroup: (groupId) => axios.post(`${API_URL}/groups/${groupId}/settle`),
     };
     
-    // ===== 首頁 =====
     function Home(){
       const[groups,setGroups]=useState([]);
       const[loading,setLoading]=useState(true);
-      
       useEffect(()=>{loadGroups();},[]);
-      
       const loadGroups = async() => {
-        try{
-          const res = await api.getGroups();
-          setGroups(res.data);
-        }catch(e){
-          setGroups(getLocalGroups());
-        }finally{setLoading(false);}
+        try{const res = await api.getGroups();setGroups(res.data);}
+        catch(e){setGroups(getLocalGroups());}
+        finally{setLoading(false);}
       };
-      
       if(loading) return <div className="text-center py-8">載入中...</div>;
-      
       return(
         <div>
-          <div className="text-center" style={{padding:'40px 0'}}>
-            <h1 style={{fontSize:'32px',fontWeight:'700',color:'#6366f1'}}>SplitEase</h1>
-          </div>
+          <div className="text-center" style={{padding:'40px 0'}}><h1 style={{fontSize:'32px',fontWeight:'700',color:'#6366f1'}}>SplitEase</h1></div>
           {groups.length===0 && <div className="text-center text-gray py-8">尚無群組</div>}
           {groups.map(g=>(
             <div key={g.id} className="card" style={{cursor:'pointer'}} onClick={()=>n(g.id)}>
@@ -88,34 +76,14 @@
       );
     }
     
-    // ===== 新增群組 =====
     function NewGroup({onBack}){
       const[groupName,setGroupName]=useState('');
       const[mode,setMode]=useState('AA');
       const[members,setMembers]=useState([]);
       const[newMember,setNewMember]=useState('');
-      
-      const addMember=()=>{
-        if(!newMember)return;
-        setMembers([...members,{id:Date.now(),name:newMember}]);
-        setNewMember('');
-      };
-      
+      const addMember=()=>{if(!newMember)return;setMembers([...members,{id:Date.now(),name:newMember}]);setNewMember('');};
       const removeMember=(id)=>{setMembers(members.filter(m=>m.id!==id));};
-      
-      const createGroup=async()=>{
-        if(!groupName)return;
-        try{
-          const res = await api.createGroup({name:groupName,mode,members});
-          n(res.data.id);
-        }catch(e){
-          const id = 'g_'+Date.now();
-          const group = {id,name:groupName,mode,members,bills:[],totalAmount:0,created:Date.now()};
-          saveLocalGroup(group);
-          n(id);
-        }
-      };
-      
+      const createGroup=async()=>{if(!groupName)return;try{const res = await api.createGroup({name:groupName,mode,members});n(res.data.id);}catch(e){const id = 'g_'+Date.now();const group = {id,name:groupName,mode,members,bills:[],totalAmount:0,created:Date.now()};saveLocalGroup(group);n(id);}};
       return(
         <div>
           <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
@@ -124,8 +92,8 @@
           <input className="input" placeholder="例如：今晚聚餐" value={groupName} onChange={e=>setGroupName(e.target.value)}/>
           <label className="label">分帳方式</label>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'24px'}}>
-            <div className="card" style={{cursor:'pointer',textAlign:'center',border:mode==='AA'?'2px solid #6366f1':''}} onClick={()=>setMode('AA')}><div style={{fontSize:'24px',marginBottom:'4px'}}>✂️</div><div style={{fontWeight:'600'}}>AA</div></div>
-            <div className="card" style={{cursor:'pointer',textAlign:'center',border:mode==='AB'?'2px solid #6366f1':''}} onClick={()=>setMode('AB')}><div style={{fontSize:'24px',marginBottom:'4px'}}>📝</div><div style={{fontWeight:'600'}}>AB</div></div>
+            <div className="card" style={{cursor:'pointer',textAlign:'center',border:mode==='AA'?'2px solid #6366f1':''}} onClick={()=>setMode('AA')}><div style={{fontSize:'24px'}}>✂️</div><div style={{fontWeight:'600'}}>AA</div></div>
+            <div className="card" style={{cursor:'pointer',textAlign:'center',border:mode==='AB'?'2px solid #6366f1':''}} onClick={()=>setMode('AB')}><div style={{fontSize:'24px'}}>📝</div><div style={{fontWeight:'600'}}>AB</div></div>
           </div>
           <label className="label">成員</label>
           <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
@@ -138,29 +106,16 @@
       );
     }
     
-    // ===== 群組詳情 =====
     function GroupDetail({groupId,onBack}){
       const[group,setGroup]=useState(null);
       const[bills,setBills]=useState([]);
-      
       useEffect(()=>{loadGroup();},[groupId]);
-      
       const loadGroup = async() => {
-        try{
-          const g = await api.getGroup(groupId);
-          const b = await api.getBills(groupId);
-          setGroup(g.data);
-          setBills(b.data);
-        }catch(e){
-          const g = getLocalGroup(groupId);
-          setGroup(g);
-          setBills(g?.bills||[]);
-        }
+        try{const g = await api.getGroup(groupId);const b = await api.getBills(groupId);setGroup(g.data);setBills(b.data);}
+        catch{e=>(setGroup(getLocalGroup(groupId)),setBills(getLocalGroup(groupId)?.bills||[]));}
       };
-      
       if(!group) return <div className="text-center py-8">載入中...</div>;
       const total = bills.reduce((s,b)=>s+b.amount,0);
-      
       return(
         <div>
           <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
@@ -174,12 +129,7 @@
               <span style={{fontSize:'32px',fontWeight:'700'}}>NT$ {total}</span>
             </div>
             {bills.length===0 && <p style={{color:'#94a3b8',textAlign:'center',padding:'20px'}}>尚無消費</p>}
-            {bills.slice().reverse().map(b=>(
-              <div key={b.id} className="item">
-                <div style={{display:'flex',justifyContent:'space-between'}}><span>{b.title}</span><span style={{fontWeight:'600'}}>{b.amount}</span></div>
-                <p style={{color:'#94a3b8',fontSize:'14px'}}>{b.payerName} 付 · {new Date(b.createdAt).toLocaleDateString()}</p>
-              </div>
-            ))}
+            {bills.slice().reverse().map(b=>(<div key={b.id} className="item"><div style={{display:'flex',justifyContent:'space-between'}}><span>{b.title}</span><span style={{fontWeight:'600'}}>{b.amount}</span></div><p style={{color:'#94a3b8',fontSize:'14px'}}>{b.payerName} 付 · {new Date(b.createdAt).toLocaleDateString()}</p></div>))}
           </div>
           <button className="btn btn-main" onClick={()=>n(groupId+'/add')}>＋ 新增消費</button>
           <button className="btn btn-sec" style={{marginTop:'12px'}} onClick={()=>n(groupId+'/settlement')}>📊 結算</button>
@@ -187,217 +137,97 @@
       );
     }
     
-    // ===== 新增消費 =====
     function AddBill({groupId,onBack}){
       const[group,setGroup]=useState(null);
       const[title,setTitle]=useState('');
       const[amount,setAmount]=useState('');
       const[payerId,setPayerId]=useState('');
       const[selectedMembers,setSelectedMembers]=useState({});
-      const[sharedFee,setSharedFee]=useState('');  // 均分費用
+      const[sharedFee,setSharedFee]=useState('');
+      const[splitMembers,setSplitMembers]=useState([]);
       
       useEffect(()=>{loadGroup();},[groupId]);
-      
       const loadGroup = async() => {
-        try{
-          const g = await api.getGroup(groupId);
-          setGroup(g.data);
-          if(g.data.members?.length>0){
-            setPayerId(g.data.members[0].id);
-            const s={};
-            g.data.members.forEach(m=>s[m.id]=0);
-            setSelectedMembers(s);
-          }
-        }catch(e){
-          const g = getLocalGroup(groupId);
-          setGroup(g);
-          if(g?.members?.length>0){
-            setPayerId(g.members[0].id);
-            const s={};
-            g.members.forEach(m=>s[m.id]=0);
-            setSelectedMembers(s);
-          }
-        }
+        try{const g = await api.getGroup(groupId);setGroup(g.data);
+          if(g.data.members?.length>0){setPayerId(g.data.members[0].id);const s={};g.data.members.forEach(m=>s[m.id]=0);setSelectedMembers(s);setSplitMembers(g.data.members.map(m=>m.id));}}
+        catch{e=>(setGroup(getLocalGroup(groupId)),getLocalGroup(groupId)?.members&&(setPayerId(getLocalGroup(groupId).members[0].id),setSplitMembers(getLocalGroup(groupId).members.map(m=>m.id))));}
       };
       
-      const saveBill = async() => {
-        if(!title||!amount)return;
-        
+      const toggleSplitMember = (mid) => {setSplitMembers(splitMembers.includes(mid)?splitMembers.filter(id=>id!==mid):[...splitMembers,mid]);};
+      
+      const saveBill = async() => {if(!title||!amount)return;
         const shared = parseFloat(sharedFee)||0;
-        const sharesObj = {};
+        let splitAmount = parseFloat(amount);
+        let finalShares = null;
         
-        // 計算每人份額 + 均分費用
-        Object.entries(selectedMembers).forEach(([mid, amt])=>{
-          sharesObj[mid] = (amt||0) + (shared / (group.members.length||1));
-        });
+        if(group.mode==='AA'){
+          if(splitMembers.length>0){finalShares = {};const splitPerPerson = splitAmount / splitMembers.length;
+            if(payerId){finalShares[payerId] = splitAmount;splitMembers.forEach(mid=>{if(mid!==payerId) finalShares[mid] = -splitPerPerson;});}
+          }
+        }else{const sharesObj = {};Object.entries(selectedMembers).forEach(([mid, amt])=>{sharesObj[mid] = (amt||0) + (shared / (group.members.length||1));});finalShares = sharesObj;splitAmount += shared;}
         
-        const total = parseFloat(amount) + shared;
-        
-        const data = {
-          title,
-          amount: total,
-          payerId,
-          shares: group.mode==='AB' ? sharesObj : null,
-          sharedFee: shared,  // 新增：均分費用
-          createdAt: Date.now()
-        };
-        
-        try{
-          await api.addBill(groupId, data);
-          n(groupId);
-        }catch(e){
-          const g = getLocalGroup(groupId);
-          g.bills.push({...data,id:'b_'+Date.now()});
-          g.totalAmount = g.bills.reduce((s,b)=>s+b.amount,0);
-          saveLocalGroup(g);
-          n(groupId);
-        }
+        const data = {title,amount:splitAmount,payerId,shares:finalShares,sharedFee:shared,splitMembers:group.mode==='AA'?splitMembers:null,createdAt:Date.now()};
+        try{await api.addBill(groupId,data);n(groupId);}catch{e=>(getLocalGroup(groupId).bills.push({...data,id:'b_'+Date.now()}),getLocalGroup(groupId).totalAmount=getLocalGroup(groupId).bills.reduce((s,b)=>s+b.amount,0),saveLocalGroup(getLocalGroup(groupId)),n(groupId));}
       };
       
       if(!group) return <div className="text-center py-8">載入中...</div>;
-      
-      const perPerson = group.members?.length ? ((parseFloat(sharedFee)||0) / group.members.length).toFixed(0) : 0;
+      const splitPerPerson = splitMembers.length ? (parseFloat(amount) / splitMembers.length).toFixed(0) : 0;
       
       return(
         <div>
           <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
           <h2 className="title" style={{marginBottom:'24px'}}>新增消費</h2>
-          
           <label className="label">消費項目</label>
           <input className="input" placeholder="例如：晚餐" value={title} onChange={e=>setTitle(e.target.value)}/>
-          
           <label className="label">多少錢？</label>
           <input className="input" placeholder="0" type="number" value={amount} onChange={e=>setAmount(e.target.value)} style={{fontSize:'32px'}}/>
-          
           <label className="label" style={{marginTop:'16px'}}>誰付錢？</label>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'20px'}}>
-            {group.members?.map(m=>(
-              <div key={m.id} className="tag" style={payerId===m.id?{background:'#6366f1',color:'white'}:{}} onClick={()=>setPayerId(m.id)}>{m.name}</div>
-            ))}
-          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'20px'}}>{group.members?.map(m=>(<div key={m.id} className="tag" style={payerId===m.id?{background:'#6366f1',color:'white'}:{}} onClick={()=>setPayerId(m.id)}>{m.name}</div>))}</div>
           
-          {group.mode==='AB' && (
-            <>
-              <label className="label">各別輸入金額</label>
-              {group.members?.map(m=>(
-                <div key={m.id} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
-                  <span style={{flex:1}}>{m.name}</span>
-                  <input type="number" className="input" style={{width:'120px',margin:0}} placeholder="0" value={selectedMembers[m.id]||''} onChange={e=>{setSelectedMembers({...selectedMembers,[m.id]:parseFloat(e.target.value)||0});}}/>
-                </div>
-              ))}
-              
-              <label className="label" style={{marginTop:'24px'}}>均分費用（外送費等，可輸入0）</label>
-              <input className="input" placeholder="0" type="number" value={sharedFee} onChange={e=>setSharedFee(e.target.value)}/>
-              {sharedFee && <p style={{color:'#64748b',fontSize:'14px',marginTop:'-12px',marginBottom:'16px'}}>每人 +NT$ {perPerson}</p>}
-            </>
-          )}
+          {group.mode==='AA' && (<>
+            <label className="label">誰要分攤？（全選或特定人）</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'20px'}}>{group.members?.map(m=>(<div key={m.id} className="tag" style={splitMembers.includes(m.id)?{background:'#6366f1',color:'white'}:{}} onClick={()=>toggleSplitMember(m.id)}>{m.name}</div>))}</div>
+            {splitMembers.length>0 && amount && <p style={{color:'#64748b',fontSize:'14px',marginTop:'-12px',marginBottom:'16px'}}>每人 NT$ {splitPerPerson}（{splitMembers.length}人）</p>}
+          </>)}
+          
+          {group.mode==='AB' && (<>
+            <label className="label">各別輸入金額</label>
+            {group.members?.map(m=>(<div key={m.id} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}><span style={{flex:1}}>{m.name}</span><input type="number" className="input" style={{width:'120px',margin:0}} placeholder="0" value={selectedMembers[m.id]||''} onChange={e=>{setSelectedMembers({...selectedMembers,[m.id]:parseFloat(e.target.value)||0});}}/></div>))}
+            <label className="label" style={{marginTop:'24px'}}>均分費用（外送費等，可輸入0）</label>
+            <input className="input" placeholder="0" type="number" value={sharedFee} onChange={e=>setSharedFee(e.target.value)}/>
+          </>)}
           
           <button className="btn btn-main" onClick={saveBill} disabled={!title||!amount}>儲存</button>
         </div>
       );
     }
     
-    // ===== 結算 =====
     function Settlement({groupId,onBack}){
       const[balances,setBalances]=useState(null);
       const[total,setTotal]=useState(0);
-      
       useEffect(()=>{loadSettlement();},[groupId]);
-      
-      const loadSettlement = async() => {
-        try{
-          const res = await api.getSettlement(groupId);
-          setBalances(res.data.balances);
-          setTotal(res.data.total);
-        }catch(e){
-          const g = getLocalGroup(groupId);
-          const b = calculateBalance(g);
-          setBalances(b);
-          setTotal(g.bills.reduce((s,b)=>s+b.amount,0));
-        }
-      };
-      
-      const calculateBalance = (g) => {
-        const bal = {};
-        g.members.forEach(m=>bal[m.id]=0);
-        
-        g.bills.forEach(b=>{
-          if(g.mode==='AA'){
-            const split = b.amount/(g.members.length);
-            if(b.payerId){
-              bal[b.payerId] += b.amount;
-              g.members.forEach(m=>{if(m.id!==b.payerId) bal[m.id] -= split;});
-            }
-          }else{
-            if(b.shares){
-              Object.entries(b.shares).forEach(([mid,amt])=>{bal[mid] = (bal[mid]||0) + amt;});
-            }
-          }
-        });
-        
-        return g.members.map(m=>({...m,balance:bal[m.id]||0}));
-      };
-      
-      const settle = async() => {
-        if(!confirm('確定結清？'))return;
-        try{
-          await api.settleGroup(groupId);
-          n(groupId);
-        }catch(e){
-          const g = getLocalGroup(groupId);
-          g.bills = [];
-          g.totalAmount = 0;
-          saveLocalGroup(g);
-          n(groupId);
-        }
-      };
-      
+      const loadSettlement = async() => {try{const res = await api.getSettlement(groupId);setBalances(res.data.balances);setTotal(res.data.total);}catch{e=(setBalances(calculateBalance(getLocalGroup(groupId))),setTotal(getLocalGroup(groupId).bills.reduce((s,b)=>s+b.amount,0)));}};
+      const calculateBalance = (g) => {const bal = {};g.members.forEach(m=>bal[m.id]=0);g.bills.forEach(b=>{if(g.mode==='AA'){const split = b.amount/(b.splitMembers?.length||g.members.length);if(b.payerId){bal[b.payerId] += b.amount;b.splitMembers?.forEach(mid=>{if(mid!==b.payerId) bal[mid] -= split;});}}else{if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>bal[mid] = (bal[mid]||0) + amt);}});return g.members.map(m=>({...m,balance:bal[m.id]||0}));};
+      const settle = async() => {if(!confirm('確定結清？'))return;try{await api.settleGroup(groupId);n(groupId);}catch{e=(getLocalGroup(groupId).bills=[],getLocalGroup(groupId).totalAmount=0,saveLocalGroup(getLocalGroup(groupId)),n(groupId));}};
       return(
         <div>
           <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
           <h2 className="title" style={{marginBottom:'24px'}}>結算</h2>
-          <div className="card" style={{textAlign:'center'}}>
-            <p style={{color:'#64748b',fontSize:'14px'}}>總金額</p>
-            <p style={{fontSize:'32px',fontWeight:'700'}}>NT$ {total}</p>
-          </div>
-          <div className="card">
-            {balances?.map(m=>(
-              <div key={m.id} style={{display:'flex',justifyContent:'space-between',padding:'16px 0',borderBottom:'1px solid #f1f5f9'}}>
-                <span style={{fontSize:'18px',fontWeight:'500'}}>{m.name}</span>
-                <span style={m.balance>0?{color:'#ef4444',fontWeight:'600'}:m.balance<0?{color:'#22c55e',fontWeight:'600'}:{}}>{m.balance>0?'+':''}{m.balance.toFixed(0)}</span>
-              </div>
-            ))}
-          </div>
+          <div className="card" style={{textAlign:'center'}}><p style={{color:'#64748b',fontSize:'14px'}}>總金額</p><p style={{fontSize:'32px',fontWeight:'700'}}>NT$ {total}</p></div>
+          <div className="card">{balances?.map(m=>(<div key={m.id} style={{display:'flex',justifyContent:'space-between',padding:'16px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'18px',fontWeight:'500'}}>{m.name}</span><span style={m.balance>0?{color:'#ef4444',fontWeight:'600'}:m.balance<0?{color:'#22c55e',fontWeight:'600'}:{}}>{m.balance>0?'+':''}{m.balance.toFixed(0)}</span></div>))}</div>
           <button className="btn btn-danger" style={{marginTop:'20px'}} onClick={settle}>💚 一鍵結清</button>
           <div style={{height:'80px'}}></div>
         </div>
       );
     }
     
-    // ===== 本地儲存輔助 =====
-    function getLocalGroups(){
-      const keys = Object.keys(localStorage).filter(k=>k.startsWith('split_group_'));
-      return keys.map(k=>JSON.parse(localStorage.getItem(k))).filter(g=>g).sort((a,b)=>b.created-a.created);
-    }
+    function getLocalGroups(){return Object.keys(localStorage).filter(k=>k.startsWith('split_group_')).map(k=>JSON.parse(localStorage.getItem(k))).filter(g=>g).sort((a,b)=>b.created-a.created);}
     function getLocalGroup(id){return JSON.parse(localStorage.getItem('split_group_'+id));}
     function saveLocalGroup(group){localStorage.setItem('split_group_'+group.id, JSON.stringify(group));}
     
-    // ===== Router =====
-    let currentPath = '';
-    const n = (path) => { currentPath = path; render(); };
-    
-    function App(){
-      const pid = localStorage.getItem('current_group');
-      if(!pid && !currentPath) return <Home/>;
-      if(currentPath==='new') return <NewGroup onBack={()=>n('')}/>;
-      if(currentPath && currentPath.includes('/add')) return <AddBill groupId={currentPath.replace('/add','')} onBack={()=>n(pid)}/>;
-      if(currentPath && currentPath.includes('/settlement')) return <Settlement groupId={currentPath.replace('/settlement','')} onBack={()=>n(pid)}/>;
-      if(currentPath && currentPath!=='new') return <GroupDetail groupId={currentPath} onBack={()=>n('')}/>;
-      return <Home/>;
-    }
-    
-    function render(){ReactDOM.render(<App/>, document.getElementById('app'));}
-    render();
+    let currentPath = '';const n = (path) => { currentPath = path; render(); };
+    function App(){const pid = localStorage.getItem('current_group');if(!pid && !currentPath) return <Home/>;if(currentPath==='new') return <NewGroup onBack={()=>n('')}/>;if(currentPath && currentPath.includes('/add')) return <AddBill groupId={currentPath.replace('/add','')} onBack={()=>n(pid)}/>;if(currentPath && currentPath.includes('/settlement')) return <Settlement groupId={currentPath.replace('/settlement','')} onBack={()=>n(pid)}/>;if(currentPath && currentPath!=='new') return <GroupDetail groupId={currentPath} onBack={()=>n('')}/>;return <Home/>;}
+    function render(){ReactDOM.render(<App/>, document.getElementById('app'));}render();
   </script>
 </body>
 </html>
