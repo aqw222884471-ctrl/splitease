@@ -1,218 +1,193 @@
-# 分帳程式 SplitEase - 規格文件 v2
+# SplitEase - 完整規格說明書
 
-## 1. 專案概述
+## 1. 產品概述
 
-- **名稱**：SplitEase
-- **類型**：響應式網頁應用程式
-- **目標用戶**：需要分攤費用的群體（聚餐、旅行、合租等）
-- **核心功能**：雙模式分帳（晚餐模式 + 完整模式）、自動計算結算
-
-## 2. 技術堆疊
-
-| 層面 | 技術 |
+| 項目 | 內容 |
 |------|------|
-| 前端 | React + Vite + Tailwind CSS |
-| 後端 | Node.js + Express |
-| 資料庫 | Google Sheets API |
-| 即時同步 | Polling (每 5 秒) |
-| 部署 | Vercel (前端) + Railway (後端) |
-
-## 3. 運作模式
-
-### 3.1 晚餐模式 🍜
-適用場景：固定一人叫晚餐、累積一週或一個月結清
-
-**記錄方式**：
-- 召集人輸入「外送費」
-- 逐一輸入成員點餐金額（誰點多少付多少）
-- 外送費均分（外送費 ÷ 人數）
-
-**計算邏輯**：
-```
-本次應付 = 個人餐點金額 + (外送費 ÷ 人數)
-累積欠款 = Σ 每次應付
-```
-
-**結算功能**：
-- 顯示每人累積欠款
-- 支援「週結」/「月結」提醒
-- 一鍵結清（清除記錄）
-
-### 3.2 完整模式 📊
-適用場景：旅行分攤、多筆支出、自定義分攤比例
-
-功能與 v1 相同，保留完整分帳功能：
-- 任意人記錄支出
-- 分攤方式：均分/自訂比例/指定人
-- 顯示結算路徑
-
-## 4. 資料結構
-
-### 4.1 Projects（專案總表）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| projectId | string | 唯一識別碼 (UUID) |
-| name | string | 專案名稱 |
-| mode | string | 模式：dinner / full |
-| inviteCode | string | 6位數邀請碼 |
-| createdAt | timestamp | 建立時間 |
-| currency | string | 幣別（預設 TWD）|
-| hostId | string | 召集人 ID（晚餐模式）|
-
-### 4.2 {projectId}_Participants（參與者）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| participantId | string | 唯一識別碼 |
-| name | string | 顯示名稱 |
-| joinedAt | timestamp | 加入時間 |
-
-### 4.3 {projectId}_Expenses（支出）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| expenseId | string | 唯一識別碼 |
-| mode | string | dinner / full |
-| payerId | string | 付款人 ID（full 模式用）|
-| description | string | 項目說明 |
-| amount | number | 總金額 |
-| dinnerItems | JSON | 晚餐項目（dinner 模式用）|
-| deliveryFee | number | 外送費（dinner 模式用）|
-| splitType | string | average/custom/percentage（full 模式用）|
-| splitData | JSON | 分攤比例數據 |
-| createdAt | timestamp | 消費時間 |
-| createdBy | string | 記錄人 |
-
-### 4.4 dinnerItems 結構（晚餐模式）
-```json
-[
-  { "participantId": "xxx", "name": "A", "amount": 150 },
-  { "participantId": "xxx", "name": "B", "amount": 200 }
-]
-```
-
-### 4.5 {projectId}_Settlement（結算）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| fromId | string | 欠款人 ID |
-| toId | string | 收款人 ID |
-| amount | number | 應付金額 |
-
-## 5. API 端點
-
-### 5.1 專案管理
-- `POST /api/projects` - 建立新專案（可選模式）
-- `GET /api/projects/:projectId` - 取得專案資訊
-- `GET /api/projects/join/:inviteCode` - 用邀請碼加入專案
-
-### 5.2 參與者
-- `POST /api/projects/:projectId/participants` - 新增參與者
-- `GET /api/projects/:projectId/participants` - 取得參與者列表
-- `DELETE /api/projects/:projectId/participants/:participantId` - 移除參與者
-
-### 5.3 支出
-- `GET /api/projects/:projectId/expenses` - 取得所有支出
-- `POST /api/projects/:projectId/expenses` - 新增支出（支援兩種模式）
-- `DELETE /api/projects/:projectId/expenses/:expenseId` - 刪除支出
-
-### 5.4 晚餐模式專用
-- `GET /api/projects/:projectId/balance` - 取得晚餐模式餘額
-- `POST /api/projects/:projectId/settle` - 結清（晚餐模式）
-
-### 5.5 結算（完整模式）
-- `GET /api/projects/:projectId/settlement` - 計算並取得結算結果
-
-## 6. 前端頁面
-
-### 6.1 首頁（Home）
-- SplitEase Logo
-- 我的專案列表（顯示名稱 + 模式 + 當前欠款）
-- [建立新專案] 按鈕
-- [輸入邀請碼加入] 按鈕
-
-### 6.2 建立專案（CreateProject）
-- 選擇模式：
-  - 🍜 晚餐模式（快速度記、週結月結）
-  - 📊 完整模式（旅行分攤、複雜分帳）
-- 輸入專案名稱
-- 輸入你的暱稱
-- 選擇幣別
-- [建立] 按鈕 → 顯示邀請碼
-
-### 6.3 加入專案（JoinProject）
-- 輸入 6 位數邀請碼
-- 輸入你的暱稱
-- [加入] 按鈕
-
-### 6.4 專案儀表板（ProjectDashboard）
-
-**晚餐模式**：
-- 顯示「當前欠款 NT$xxx」
-- [新增點單] 按鈕
-- 點單歷史（日期 + 金額）
-- [查看結算] 按鈕
-
-**完整模式**：
-- 專案名稱 + 邀請碼
-- 參與者列表
-- [新增支出] 按鈕
-- 支出明細列表
-- [查看結算] 按鈕
-
-### 6.5 新增點單（AddDinnerOrder - 晚餐模式）
-- 輸入外送費
-- 成員點餐 清單：
-  - [成員A] 輸入金額
-  - [成員B] 輸入金額
-  - ...
-- [確認新增] 按鈕
-
-### 6.6 新增支出（AddExpense - 完整模式）
-- 選擇付款人
-- 輸入項目說明
-- 輸入金額
-- 選擇分攤方式
-- [確認新增] 按鈕
-
-### 6.7 結算結果
-
-**晚餐模式**：
-- 每人累積欠款對照表
-- 設定結清日（週結/月結）
-- [一鍵結清] 按鈕
-
-**完整模式**：
-- 最佳還款路徑
-- 每人已墊付 vs 應分攤
-- [一鍵結清] 按鈕
-
-## 7. UI/UX 設計
-
-### 7.1 色彩方案
-- 主色：#6366F1（Indigo）
-- 晚餐模式強調色：#F59E0B（Orange）
-- 背景：#F8FAFC
-- 卡片：#FFFFFF
-- 文字：#1E293B
-- 成功：#10B981
-- 警告：#F59E0B
-
-### 7.2 響應式斷點
-- Mobile: < 640px
-- Tablet: 640px - 1024px
-- Desktop: > 1024px
-
-### 7.3 交互設計
-- 模式切換有視覺區分（晚餐用橙色 icon）
-- 卡片有輕微圓角 (12px)
-- 載入時有 skeleton loading
-- 錯誤訊息用 Toast 提示
-
-## 8.待實現功能
-
-- [ ] Google Sheets 整合
-- [ ] 匯出 CSV
-- [ ] 週期性結清提醒通知
+| **產品名稱** | SplitEase |
+| **產品類型** | 分帳 Web App |
+| **目標用戶** | 需要分攤費用的群體（聚餐、旅行、合租等）|
+| **核心功能** | AA制（大家平分）+ AB制（各付各的）|
+| **部署** | Vercel (前端) + Railway (後端) |
 
 ---
 
-**文件版本**：v2.0
-**建立日期**：2026-04-13
+## 2. 技術架構
+
+### 2.1 後端
+| 項目 | 內容 |
+|------|------|
+| 語言 | Node.js |
+| 框架 | Express |
+| 資料庫 | SQLite（本地端）/ MySQL（Railway）|
+| 部署 | Railway |
+
+### 2.2 前端
+| 項目 | 內容 |
+|------|------|
+| 語言 | React |
+| 建構工具 | Vite |
+| CSS | Tailwind CSS |
+| 部署 | Vercel |
+
+### 2.3 API 通訊
+- RESTful API
+- JSON 格式
+
+---
+
+## 3. 資料模型
+
+### 3.1 群組 (Group)
+```javascript
+{
+  id: string,           // UUID
+  name: string,          // 群組名稱
+  mode: string,          // 'AA' | 'AB'
+  currency: string,      // 'TWD' (預設)
+  createdAt: timestamp,
+  updatedAt: timestamp
+}
+```
+
+### 3.2 成員 (Member)
+```javascript
+{
+  id: string,           // UUID
+  groupId: string,      // 關聯的群組ID
+  name: string,         // 成員名稱
+  color: number,        // 顏色代碼
+  createdAt: timestamp
+}
+```
+
+### 3.3 消費 (Bill)
+```javascript
+{
+  id: string,           // UUID
+  groupId: string,      // 關聯的群組ID
+  title: string,       // 消費項目
+  amount: number,      // 金額
+  payerId: string,      // 付款人ID
+  payerName: string,   // 付款人名稱
+  shares: object,       // AB模式：{ memberId: amount }
+  createdAt: timestamp
+}
+```
+
+---
+
+## 4. API 端點
+
+### 4.1 群組
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| POST | `/api/groups` | 建立新群組 |
+| GET | `/api/groups` | 取得所有群組 |
+| GET | `/api/groups/:id` | 取得單一群組 |
+| DELETE | `/api/groups/:id` | 刪除群組 |
+
+### 4.2 成員
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| POST | `/api/groups/:groupId/members` | 新增成員 |
+| GET | `/api/groups/:groupId/members` | 取得成員列表 |
+| DELETE | `/api/groups/:groupId/members/:id` | 刪除成員 |
+
+### 4.3 消費
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| POST | `/api/groups/:groupId/bills` | 新增消費 |
+| GET | `/api/groups/:groupId/bills` | 取得消費列表 |
+| DELETE | `/api/groups/:groupId/bills/:id` | 刪除消費 |
+
+### 4.4 結算
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/groups/:groupId/settlement` | 取得結算資料 |
+| POST | `/api/groups/:groupId/settle` | 一鍵結清 |
+
+---
+
+## 5. 功能清單
+
+### 5.1 首頁
+- [x] 顯示群組列表
+- [x] 顯示群組名稱、成員數、總金額
+- [x] 建立新群組按鈕
+
+### 5.2 建立群組
+- [x] 輸入群組名稱
+- [x] 選擇 AA/AB 模式
+- [x] 新增成員（可多個）
+- [x] 建立按鈕
+
+### 5.3 群組詳情
+- [x] 顯示群組名稱與模式
+- [x] 顯示成員列表
+- [x] 顯示消費紀錄列表
+- [x] 新增消費按鈕
+- [x] 結算按鈕
+- [x] 刪除群組
+
+### 5.4 新增消費（AA模式）
+- [x] 輸入消費項目
+- [x] 輸入金額
+- [x] 選擇誰付錢
+- [x] 自動計算每人分攤金額
+- [x] 儲存
+
+### 5.5 新增消費（AB模式）
+- [x] 選擇誰吃了
+- [x] 各別輸入金額
+- [x] 儲存
+
+### 5.6 結算
+- [x] 顯示總金額
+- [x] 顯示每人應付/應收金額
+- [x] 一鍵結清（清除消費紀錄）
+- [x] 刪除群組
+
+---
+
+## 6. UI/UX 設計
+
+### 6.1 配色
+| 用途 | 顏色 |
+|------|------|
+| 主色 | #6366F1（Indigo） |
+| AA模式 | #EF4444（紅） |
+| AB模式 | #22C55E（綠） |
+| 背景 | #F8FAFC |
+| 卡片 | #FFFFFF |
+| 文字 | #1E293B |
+
+### 6.2 RWD
+- 手機優先（Mobile-first）
+- 最大寬度：420px
+- 底部浮動按鈕
+
+### 6.3 設計重點
+- 大觸控區域（48px+）
+- 清晰視覺區分 AA/AB
+- 單手操作友善
+
+---
+
+## 7. 部署設定
+
+### 7.1 Vercel（前端正向代理）
+- 靜態部署
+- API 路由轉發到後端
+
+### 7.2 Railway（後端）
+- Node.js 環境
+- SQLite 資料庫
+
+---
+
+## 8. 待完成
+
+- [ ] Railway 部署
+- [ ] Vercel + Railway 串接
+- [ ] 生產環境網域綁定

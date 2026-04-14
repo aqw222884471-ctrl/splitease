@@ -1,274 +1,209 @@
-import 'dotenv/config'
-import express from 'express'
-import cors from 'cors'
-import { v4 as uuidv4 } from 'uuid'
-import { google } from 'googleapis'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import express from 'express';
+import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-const app = express()
-app.use(cors())
-app.use(express.json())
-app.use(express.static(path.join(__dirname, '../')))
+// ===== 記憶體資料庫 =====
+const db = {
+  groups: {},
+  members: {},
+  bills: {}
+};
 
-// CORS 設定
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}
-app.use(cors(corsOptions))
+// ===== 工具函式 =====
+function genId() { return uuidv4(); }
 
-// Google Sheets 配置
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+// ===== 群組 API =====
 
-let auth
-try {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT)
-  auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: SCOPES,
-  })
-} catch (e) {
-  console.log('⚠️ Google Sheets API 未配置，使用記憶體模式')
-}
-
-// 記憶體存儲
-const inMemoryDB = {
-  projects: {},
-  participants: {},
-  expenses: {},
-  settlements: {}
-}
-
-// 工具函數
-function generateInviteCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase()
-}
-
-// API 端點
-
-// 1. 建立新專案（支援模式選擇）
-app.post('/api/projects', (req, res) => {
-  const { name, currency = 'TWD', mode = 'full', hostName } = req.body
-  const projectId = uuidv4()
-  const inviteCode = generateInviteCode()
-
-  inMemoryDB.projects[projectId] = {
-    projectId,
+// 建立群組
+app.post('/api/groups', (req, res) => {
+  const { name, mode = 'AA', members = [] } = req.body;
+  const groupId = genId();
+  
+  const group = {
+    id: groupId,
     name,
     mode,
-    inviteCode,
-    currency,
-    createdAt: new Date().toISOString()
-  }
-
-  const hostParticipant = {
-    participantId: uuidv4(),
-    name: hostName,
-    isHost: true,
-    joinedAt: new Date().toISOString()
-  }
-  inMemoryDB.participants[projectId] = [hostParticipant]
-  inMemoryDB.expenses[projectId] = []
-
-  if (mode === 'dinner') {
-    inMemoryDB.projects[projectId].hostId = hostParticipant.participantId
-    inMemoryDB.projects[projectId].dinnerBalance = {}
-  }
-
-  res.json({ 
-    projectId, 
-    inviteCode, 
-    name,
-    mode,
-    participantId: hostParticipant.participantId 
-  })
-})
-
-// 2. 取得專案資訊
-app.get('/api/projects/:projectId', (req, res) => {
-  const { projectId } = req.params
-  const project = inMemoryDB.projects[projectId]
-  if (!project) {
-    return res.status(404).json({ error: '專案不存在' })
-  }
-  res.json(project)
-})
-
-// 3. 用邀請碼取得專案
-app.get('/api/projects/join/:inviteCode', (req, res) => {
-  const { inviteCode } = req.params
-  const project = Object.values(inMemoryDB.projects).find(p => p.inviteCode === inviteCode)
-  if (!project) {
-    return res.status(404).json({ error: '邀請碼無效' })
-  }
-  res.json({ 
-    projectId: project.projectId, 
-    name: project.name,
-    mode: project.mode 
-  })
-})
-
-// 4. 新增參與者
-app.post('/api/projects/:projectId/participants', (req, res) => {
-  const { projectId } = req.params
-  const { name } = req.body
+    totalAmount: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
   
-  if (!inMemoryDB.projects[projectId]) {
-    return res.status(404).json({ error: '專案不存在' })
-  }
+  db.groups[groupId] = group;
+  
+  // 建立成員
+  const memberList = members.map(m => ({
+    id: genId(),
+    groupId,
+    name: m.name,
+    color: Math.floor(Math.random() * 0xFFFFFF)
+  }));
+  
+  db.members[groupId] = memberList;
+  db.bills[groupId] = [];
+  
+  res.json({ ...group, members: memberList });
+});
 
-  const participant = {
-    participantId: uuidv4(),
-    name,
-    isHost: false,
-    joinedAt: new Date().toISOString()
+// 取得所有群組
+app.get('/api/groups', (req, res) => {
+  const groups = Object.values(db.groups).map(g => {
+    const members = db.members[g.id] || [];
+    const bills = db.bills[g.id] || [];
+    const totalAmount = bills.reduce((s, b) => s + b.amount, 0);
+    return { ...g, members, totalAmount };
+  });
+  res.json(groups);
+});
+
+// 取得單一群組
+app.get('/api/groups/:id', (req, res) => {
+  const group = db.groups[req.params.id];
+  if (!group) return res.status(404).json({ error: '群組不存在' });
+  
+  const members = db.members[req.params.id] || [];
+  res.json({ ...group, members });
+});
+
+// 刪除群組
+app.delete('/api/groups/:id', (req, res) => {
+  delete db.groups[req.params.id];
+  delete db.members[req.params.id];
+  delete db.bills[req.params.id];
+  res.json({ success: true });
+});
+
+// ===== 成員 API =====
+
+// 新增成員
+app.post('/api/groups/:groupId/members', (req, res) => {
+  const { name } = req.body;
+  const groupId = req.params.groupId;
+  
+  if (!db.groups[groupId]) {
+    return res.status(404).json({ error: '群組不存在' });
   }
   
-  inMemoryDB.participants[projectId].push(participant)
-  res.json(participant)
-})
+  const member = {
+    id: genId(),
+    groupId,
+    name,
+    color: Math.floor(Math.random() * 0xFFFFFF)
+  };
+  
+  if (!db.members[groupId]) db.members[groupId] = [];
+  db.members[groupId].push(member);
+  
+  res.json(member);
+});
 
-// 5. 取得參與者列表
-app.get('/api/projects/:projectId/participants', (req, res) => {
-  const { projectId } = req.params
-  const participants = inMemoryDB.participants[projectId] || []
-  res.json(participants)
-})
+// 取得成員列表
+app.get('/api/groups/:groupId/members', (req, res) => {
+  const members = db.members[req.params.groupId] || [];
+  res.json(members);
+});
 
-// 6. 新增晚餐模式支出
-app.post('/api/projects/:projectId/dinner-expenses', (req, res) => {
-  const { projectId } = req.params
-  const { deliveryFee = 0, items, createdBy } = req.body
+// ===== 消費 API =====
 
-  const project = inMemoryDB.projects[projectId]
-  if (!project) {
-    return res.status(404).json({ error: '專案不存在' })
+// 新增消費
+app.post('/api/groups/:groupId/bills', (req, res) => {
+  const { title, amount, payerId, shares } = req.body;
+  const groupId = req.params.groupId;
+  
+  if (!db.groups[groupId]) {
+    return res.status(404).json({ error: '群組不存在' });
   }
+  
+  const members = db.members[groupId] || [];
+  const payer = members.find(m => m.id === payerId);
+  
+  const bill = {
+    id: genId(),
+    groupId,
+    title,
+    amount: parseFloat(amount),
+    payerId,
+    payerName: payer?.name || '未知',
+    shares: shares || null,
+    createdAt: Date.now()
+  };
+  
+  if (!db.bills[groupId]) db.bills[groupId] = [];
+  db.bills[groupId].push(bill);
+  
+  // 更新總金額
+  db.groups[groupId].totalAmount = db.bills[groupId].reduce((s, b) => s + b.amount, 0);
+  db.groups[groupId].updatedAt = Date.now();
+  
+  res.json(bill);
+});
 
-  if (project.mode !== 'dinner') {
-    return res.status(400).json({ error: '此專案不是晚餐模式' })
-  }
+// 取得消費列表
+app.get('/api/groups/:groupId/bills', (req, res) => {
+  const bills = db.bills[req.params.groupId] || [];
+  res.json(bills);
+});
 
-  const participants = inMemoryDB.participants[projectId]
-  const deliveryPerPerson = deliveryFee / participants.length
+// ===== 結算 API =====
 
-  const expenseItems = items.map(item => {
-    const amount = parseFloat(item.amount)
-    const totalOwed = amount + deliveryPerPerson
+// 取得結算資料
+app.get('/api/groups/:groupId/settlement', (req, res) => {
+  const groupId = req.params.groupId;
+  const group = db.groups[groupId];
+  const members = db.members[groupId] || [];
+  const bills = db.bills[groupId] || [];
+  
+  const balances = {};
+  members.forEach(m => { balances[m.id] = 0; });
+  
+  let total = 0;
+  bills.forEach(b => {
+    total += b.amount;
     
-    if (!project.dinnerBalance) project.dinnerBalance = {}
-    if (!project.dinnerBalance[item.participantId]) {
-      project.dinnerBalance[item.participantId] = 0
-    }
-    project.dinnerBalance[item.participantId] += totalOwed
-
-    return {
-      participantId: item.participantId,
-      amount: amount,
-      deliveryShare: deliveryPerPerson,
-      totalOwed: totalOwed
-    }
-  })
-
-  const expense = {
-    expenseId: uuidv4(),
-    mode: 'dinner',
-    deliveryFee: parseFloat(deliveryFee),
-    items: expenseItems,
-    createdAt: new Date().toISOString(),
-    createdBy: createdBy || 'unknown'
-  }
-
-  inMemoryDB.expenses[projectId].push(expense)
-  res.json(expense)
-})
-
-// 7. 取得所有支出
-app.get('/api/projects/:projectId/expenses', (req, res) => {
-  const { projectId } = req.params
-  const expenses = inMemoryDB.expenses[projectId] || []
-  res.json(expenses)
-})
-
-// 8. 晚餐模式餘額
-app.get('/api/projects/:projectId/balance', (req, res) => {
-  const { projectId } = req.params
-  const project = inMemoryDB.projects[projectId]
-  
-  if (!project) {
-    return res.status(404).json({ error: '專案不存在' })
-  }
-
-  const participants = inMemoryDB.participants[projectId] || []
-  const expenses = inMemoryDB.expenses[projectId] || []
-  
-  const balance = {}
-  participants.forEach(p => {
-    balance[p.participantId] = {
-      name: p.name,
-      isHost: p.isHost,
-      totalOwed: 0,
-      totalPaid: 0
-    }
-  })
-
-  if (project.mode === 'dinner' && project.dinnerBalance) {
-    participants.forEach(p => {
-      balance[p.participantId].totalOwed = project.dinnerBalance[p.participantId] || 0
-      balance[p.participantId].totalPaid = project.dinnerBalance[p.participantId] || 0
-    })
-  }
-
-  const balanceList = Object.entries(balance).map(([participantId, data]) => ({
-    participantId,
-    ...data,
-    balance: data.isHost ? data.totalPaid - data.totalOwed : data.totalOwed - data.totalPaid
-  }))
-
-  res.json({
-    mode: project.mode,
-    hostId: project.hostId,
-    balances: balanceList,
-    totalExpenses: expenses.reduce((sum, e) => {
-      if (e.mode === 'dinner') {
-        return sum + e.items.reduce((s, i) => s + i.totalOwed, 0)
+    if (group.mode === 'AA') {
+      const split = b.amount / members.length;
+      if (b.payerId) {
+        balances[b.payerId] += b.amount;
+        members.forEach(m => {
+          if (m.id !== b.payerId) balances[m.id] -= split;
+        });
       }
-      return sum + (e.amount || 0)
-    }, 0)
-  })
-})
-
-// 9. 結清
-app.post('/api/projects/:projectId/settle', (req, res) => {
-  const { projectId } = req.params
-  const project = inMemoryDB.projects[projectId]
+    } else {
+      if (b.shares) {
+        Object.entries(b.shares).forEach(([mid, amt]) => {
+          balances[mid] = (balances[mid] || 0) + amt;
+        });
+      }
+    }
+  });
   
-  if (!project) {
-    return res.status(404).json({ error: '專案不存在' })
-  }
-
-  if (project.mode === 'dinner') {
-    inMemoryDB.expenses[projectId] = inMemoryDB.expenses[projectId].filter(e => e.mode !== 'dinner')
-    project.dinnerBalance = {}
-  } else {
-    inMemoryDB.expenses[projectId] = []
-  }
+  const result = members.map(m => ({
+    id: m.id,
+    name: m.name,
+    balance: balances[m.id] || 0
+  }));
   
-  res.json({ success: true, message: '已結清所有帳務' })
-})
+  res.json({ balances: result, total });
+});
 
-const PORT = process.env.PORT || 3000
+// 一鍵結清
+app.post('/api/groups/:groupId/settle', (req, res) => {
+  const groupId = req.params.groupId;
+  db.bills[groupId] = [];
+  db.groups[groupId].totalAmount = 0;
+  db.groups[groupId].updatedAt = Date.now();
+  res.json({ success: true });
+});
 
-// Health check
+// ===== Health Check =====
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
-})
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 SplitEase 運行在 http://localhost:${PORT}`)
-})
+  console.log(`🚀 SplitEase API 運行在 port ${PORT}`);
+});
