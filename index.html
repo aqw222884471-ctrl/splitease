@@ -158,6 +158,7 @@
           <div style="height:60px"></div>
           <button class="btn btn-main" onclick="page='add';items=[];title='';amount='';totalPaid=0;feePerPerson=0;payerId=members[0]?.id;splitMembers=members.map(m=>m.id);servicePercent=0;sharedFee='';discount=0;editBillId=null;render()">＋ 新增消費</button>
           <button class="btn btn-sec mt-2" onclick="page='settlement';render()">📊 結算</button>
+          <button class="btn btn-sec mt-2" onclick="page='members';render()">👥 管理成員</button>
         `;
         return;
       }
@@ -289,6 +290,31 @@
             });
           });
         },0);
+        return;
+      }
+      
+      // ===== 成員管理 =====
+      if(page==='members'){
+        app.innerHTML=`
+          <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:12px;color:var(--text-light)" onclick="page='group';render()">← 返回</button>
+          <h2 class="title">👥 管理成員</h2>
+          
+          <div class="card">
+            <p style="font-weight:600;margin-bottom:12px">目前成員 (${members.length}人)</p>
+            ${members.map(m=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+                <span>${m.name}</span>
+                <button class="btn" style="width:auto;padding:6px 12px;background:var(--danger);color:white;font-size:12px" onclick="deleteMember('${m.id}')">刪除</button>
+              </div>
+            `).join('')}
+          </div>
+          
+          <label class="label">新增成員</label>
+          <div class="flex gap-2 mb-2">
+            <input class="input flex-1" placeholder="輸入名字" id="newMemberInput" style="margin:0"/>
+            <button class="btn" style="width:44px;background:var(--accent);color:white" onclick="addNewMember()">+</button>
+          </div>
+        `;
         return;
       }
       
@@ -446,6 +472,26 @@
     }
     function removeMember(id){members=members.filter(m=>m.id!==id);render();}
     function toggleSplit(id){splitMembers=splitMembers.includes(id)?splitMembers.filter(x=>x!==id):[...splitMembers,id];render();}
+    
+    // 成員管理功能
+    function addNewMember(){
+      const input=document.getElementById('newMemberInput');
+      if(!input || !input.value)return;
+      members.push({id:uid(),name:input.value});
+      group.members=members;
+      group.updated=Date.now();
+      saveGroup(group);
+      input.value='';
+      render();
+    }
+    function deleteMember(id){
+      if(!confirm('確定刪除此成員？'))return;
+      members=members.filter(m=>m.id!==id);
+      group.members=members;
+      group.updated=Date.now();
+      saveGroup(group);
+      render();
+    }
     
     function createGroup(){if(!groupName)return;const g={id:uid(),name:groupName,mode,members,bills:[],created:Date.now(),updated:Date.now()};saveGroup(g);group=g;page='group';render();}
     function openGroup(id){group=getGroup(id);if(!group)return;members=group.members;bills=group.bills;mode=group.mode;page='group';render();}
