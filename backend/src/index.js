@@ -36,18 +36,10 @@ app.get('/api/groups/:id', (req, res) => {
   res.json({ ...group, members: db.members[req.params.id] || [] });
 });
 
-app.delete('/api/groups/:id', (req, res) => {
-  delete db.groups[req.params.id];
-  delete db.members[req.params.id];
-  delete db.bills[req.params.id];
-  res.json({ success: true });
-});
-
 // 消費
 app.post('/api/groups/:groupId/bills', (req, res) => {
   const { title, amount, payerId, shares, sharedFee, splitMembers } = req.body;
   const groupId = req.params.groupId;
-  const group = db.groups[groupId];
   const members = db.members[groupId] || [];
   const payer = members.find(m => m.id === payerId);
   

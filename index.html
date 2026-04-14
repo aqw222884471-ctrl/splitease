@@ -24,6 +24,7 @@
     .negative{color:#22c55e;font-weight:600}
     .label{font-size:14px;color:#64748b;margin-bottom:8px;display:block}
     .money{font-size:32px;font-weight:700;color:#1e293b}
+    .suggestion{background:#fef3c7;border:1px solid #f59e0b;padding:12px;border-radius:8px;margin-top:8px}
   </style>
 </head>
 <body>
@@ -34,14 +35,12 @@
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <script type="text/babel">
     const{useState,useEffect}=React;
-    
     const API_URL = 'http://localhost:3000';
     
     const api = {
       createGroup: (data) => axios.post(`${API_URL}/groups`, data),
       getGroups: () => axios.get(`${API_URL}/groups`),
       getGroup: (id) => axios.get(`${API_URL}/groups/${id}`),
-      deleteGroup: (id) => axios.delete(`${API_URL}/groups/${id}`),
       addBill: (groupId, data) => axios.post(`${API_URL}/groups/${groupId}/bills`, data),
       getBills: (groupId) => axios.get(`${API_URL}/groups/${groupId}/bills`),
       getSettlement: (groupId) => axios.get(`${API_URL}/groups/${groupId}/settlement`),
@@ -54,7 +53,7 @@
       useEffect(()=>{loadGroups();},[]);
       const loadGroups = async() => {
         try{const res = await api.getGroups();setGroups(res.data);}
-        catch(e){setGroups(getLocalGroups());}
+        catch{e=>(setGroups(getLocalGroups()));}
         finally{setLoading(false);}
       };
       if(loading) return <div className="text-center py-8">載入中...</div>;
@@ -83,7 +82,7 @@
       const[newMember,setNewMember]=useState('');
       const addMember=()=>{if(!newMember)return;setMembers([...members,{id:Date.now(),name:newMember}]);setNewMember('');};
       const removeMember=(id)=>{setMembers(members.filter(m=>m.id!==id));};
-      const createGroup=async()=>{if(!groupName)return;try{const res = await api.createGroup({name:groupName,mode,members});n(res.data.id);}catch(e){const id = 'g_'+Date.now();const group = {id,name:groupName,mode,members,bills:[],totalAmount:0,created:Date.now()};saveLocalGroup(group);n(id);}};
+      const createGroup=async()=>{if(!groupName)return;try{const res = await api.createGroup({name:groupName,mode,members});n(res.data.id);}catch{e=(const id = 'g_'+Date.now();const group = {id,name:groupName,mode,members,bills:[],totalAmount:0,created:Date.now()};saveLocalGroup(group);n(id));}};
       return(
         <div>
           <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
@@ -112,7 +111,7 @@
       useEffect(()=>{loadGroup();},[groupId]);
       const loadGroup = async() => {
         try{const g = await api.getGroup(groupId);const b = await api.getBills(groupId);setGroup(g.data);setBills(b.data);}
-        catch{e=>(setGroup(getLocalGroup(groupId)),setBills(getLocalGroup(groupId)?.bills||[]));}
+        catch{e=(setGroup(getLocalGroup(groupId)),setBills(getLocalGroup(groupId)?.bills||[]));}
       };
       if(!group) return <div className="text-center py-8">載入中...</div>;
       const total = bills.reduce((s,b)=>s+b.amount,0);
@@ -150,24 +149,28 @@
       const loadGroup = async() => {
         try{const g = await api.getGroup(groupId);setGroup(g.data);
           if(g.data.members?.length>0){setPayerId(g.data.members[0].id);const s={};g.data.members.forEach(m=>s[m.id]=0);setSelectedMembers(s);setSplitMembers(g.data.members.map(m=>m.id));}}
-        catch{e=>(setGroup(getLocalGroup(groupId)),getLocalGroup(groupId)?.members&&(setPayerId(getLocalGroup(groupId).members[0].id),setSplitMembers(getLocalGroup(groupId).members.map(m=>m.id))));}
+        catch{e=(setGroup(getLocalGroup(groupId)),getLocalGroup(groupId)?.members&&(setPayerId(getLocalGroup(groupId).members[0].id),setSplitMembers(getLocalGroup(groupId).members.map(m=>m.id))));}
       };
       
       const toggleSplitMember = (mid) => {setSplitMembers(splitMembers.includes(mid)?splitMembers.filter(id=>id!==mid):[...splitMembers,mid]);};
+      
+      // 計算 AB 模式自動合計
+      const calcABTotal = () => {return Object.values(selectedMembers).reduce((s,v)=>s+(v||0),0);};
+      const billTotal = parseFloat(amount)||0;
+      const sumIndividual = calcABTotal();
+      const diff = billTotal - sumIndividual;
       
       const saveBill = async() => {if(!title||!amount)return;
         const shared = parseFloat(sharedFee)||0;
         let splitAmount = parseFloat(amount);
         let finalShares = null;
         
-        if(group.mode==='AA'){
-          if(splitMembers.length>0){finalShares = {};const splitPerPerson = splitAmount / splitMembers.length;
-            if(payerId){finalShares[payerId] = splitAmount;splitMembers.forEach(mid=>{if(mid!==payerId) finalShares[mid] = -splitPerPerson;});}
-          }
-        }else{const sharesObj = {};Object.entries(selectedMembers).forEach(([mid, amt])=>{sharesObj[mid] = (amt||0) + (shared / (group.members.length||1));});finalShares = sharesObj;splitAmount += shared;}
+        if(group.mode==='AA'){if(splitMembers.length>0){finalShares = {};const splitPerPerson = splitAmount / splitMembers.length;
+          if(payerId){finalShares[payerId] = splitAmount;splitMembers.forEach(mid=>{if(mid!==payerId) finalShares[mid] = -splitPerPerson;});}}}
+        else{const sharesObj = {};Object.entries(selectedMembers).forEach(([mid, amt])=>{sharesObj[mid] = (amt||0) + (shared / (group.members.length||1));});finalShares = sharesObj;splitAmount += shared;}
         
         const data = {title,amount:splitAmount,payerId,shares:finalShares,sharedFee:shared,splitMembers:group.mode==='AA'?splitMembers:null,createdAt:Date.now()};
-        try{await api.addBill(groupId,data);n(groupId);}catch{e=>(getLocalGroup(groupId).bills.push({...data,id:'b_'+Date.now()}),getLocalGroup(groupId).totalAmount=getLocalGroup(groupId).bills.reduce((s,b)=>s+b.amount,0),saveLocalGroup(getLocalGroup(groupId)),n(groupId));}
+        try{await api.addBill(groupId,data);n(groupId);}catch{e=(getLocalGroup(groupId).bills.push({...data,id:'b_'+Date.now()}),getLocalGroup(groupId).totalAmount=getLocalGroup(groupId).bills.reduce((s,b)=>s+b.amount,0),saveLocalGroup(getLocalGroup(groupId)),n(groupId));}
       };
       
       if(!group) return <div className="text-center py-8">載入中...</div>;
@@ -193,7 +196,30 @@
           {group.mode==='AB' && (<>
             <label className="label">各別輸入金額</label>
             {group.members?.map(m=>(<div key={m.id} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}><span style={{flex:1}}>{m.name}</span><input type="number" className="input" style={{width:'120px',margin:0}} placeholder="0" value={selectedMembers[m.id]||''} onChange={e=>{setSelectedMembers({...selectedMembers,[m.id]:parseFloat(e.target.value)||0});}}/></div>))}
-            <label className="label" style={{marginTop:'24px'}}>均分費用（外送費等，可輸入0）</label>
+            
+            {/* 自動計算合計 + 建議均分費用 */}
+            {amount && sumIndividual > 0 && (
+              <div className="card" style={{background:'#f8fafc',marginTop:'16px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}>
+                  <span>個人輸入合計：</span>
+                  <span style={{fontWeight:'600'}}>NT$ {sumIndividual}</span>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}>
+                  <span>帳單總額：</span>
+                  <span style={{fontWeight:'600'}}>NT$ {billTotal}</span>
+                </div>
+                {diff !== 0 && (
+                  <div className="suggestion">
+                    <p style={{color:'#92400e',fontSize:'14px',fontWeight:'600'}}>⚠️ 差額 NT$ {Math.abs(diff).toFixed(0)}</p>
+                    <p style={{color:'#92400e',fontSize:'13px',marginTop:'4px'}}>建議將差額填入均分費用（外送費等）</p>
+                    <input className="input" style={{marginTop:'8px',borderColor:'#f59e0b'}} placeholder={`建議填入 ${Math.abs(diff).toFixed(0)}`} type="number" value={sharedFee} onChange={e=>setSharedFee(e.target.value)}/>
+                  </div>
+                )}
+                {diff === 0 && <p style={{color:'#22c55e',fontSize:'14px'}}>✅ 金額已平衡</p>}
+              </div>
+            )}
+            
+            <label className="label" style={{marginTop:'16px'}}>均分費用（外送費等，可輸入0）</label>
             <input className="input" placeholder="0" type="number" value={sharedFee} onChange={e=>setSharedFee(e.target.value)}/>
           </>)}
           
@@ -207,7 +233,7 @@
       const[total,setTotal]=useState(0);
       useEffect(()=>{loadSettlement();},[groupId]);
       const loadSettlement = async() => {try{const res = await api.getSettlement(groupId);setBalances(res.data.balances);setTotal(res.data.total);}catch{e=(setBalances(calculateBalance(getLocalGroup(groupId))),setTotal(getLocalGroup(groupId).bills.reduce((s,b)=>s+b.amount,0)));}};
-      const calculateBalance = (g) => {const bal = {};g.members.forEach(m=>bal[m.id]=0);g.bills.forEach(b=>{if(g.mode==='AA'){const split = b.amount/(b.splitMembers?.length||g.members.length);if(b.payerId){bal[b.payerId] += b.amount;b.splitMembers?.forEach(mid=>{if(mid!==b.payerId) bal[mid] -= split;});}}else{if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>bal[mid] = (bal[mid]||0) + amt);}});return g.members.map(m=>({...m,balance:bal[m.id]||0}));};
+      const calculateBalance = (g) => {const bal = {};g.members.forEach(m=>bal[m.id]=0);g.bills.forEach(b=>{if(g.mode==='AA'){const splitList = b.splitMembers || g.members.map(m=>m.id);const split = b.amount / (splitList.length||1);if(b.payerId){bal[b.payerId] += b.amount;splitList.forEach(mid=>{if(mid!==b.payerId) bal[mid] -= split;});}}else{if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>bal[mid] = (bal[mid]||0) + amt);}});return g.members.map(m=>({...m,balance:bal[m.id]||0}));};
       const settle = async() => {if(!confirm('確定結清？'))return;try{await api.settleGroup(groupId);n(groupId);}catch{e=(getLocalGroup(groupId).bills=[],getLocalGroup(groupId).totalAmount=0,saveLocalGroup(getLocalGroup(groupId)),n(groupId));}};
       return(
         <div>
