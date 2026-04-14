@@ -555,10 +555,9 @@
     }
     
     function settle(){
-      if(!confirm('確定結清？會清除所有消費紀錄'))return;
-      bills=[];
-      group.bills=[];group.updated=Date.now();saveGroup(group);
-      page='group';render();
+      if(!confirm('確定結清並刪除群組？'))return;
+      localStorage.removeItem('splitease_g_'+group.id);
+      page='home';render();
     }
     
     function copyResult(){
