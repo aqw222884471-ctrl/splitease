@@ -48,12 +48,10 @@
     let page='home', group=null, groupName='', newMemberName='', members=[], bills=[], mode='AA';
     let title='', amount='', payerId='', shares={}, sharedFee='', splitMembers=[];
     let editBillId=null, items=[]; // AA模式用
+    let servicePercent=0, discount=0, discountType='proportional';
     
-    // AA模式：服務費百分比
-    let servicePercent=0;
-    
-    // AB模式：折扣
-    let discount=0, discountType='proportional'; // proportional or average
+    // 用於追蹤輸入狀態（避免每次輸入都重繪）
+    let inputState={};
     
     function getGroups(){return Object.keys(localStorage).filter(k=>k.startsWith('splitease_g_')).map(k=>load(k.replace('splitease_',''))).filter(g=>g).sort((a,b)=>b.updated-a.updated);}
     function getGroup(id){return load('g_'+id);}
@@ -64,7 +62,6 @@
       const app=document.getElementById('app');
       const groups=getGroups();
       
-      // ===== 首頁 =====
       if(page==='home'){
         app.innerHTML=`
           <h1>🍽️ SplitEase</h1>
@@ -82,14 +79,13 @@
         return;
       }
       
-      // ===== 新增群組 =====
       if(page==='new'){
         app.innerHTML=`
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='home';render()">← 返回</button>
           <h2 class="title">新增群組</h2>
           
           <label class="label">群組名稱</label>
-          <input class="input" placeholder="例如：今晚聚餐" id="gname" value="${groupName}" oninput="groupName=this.value;render()"/>
+          <input class="input" placeholder="例如：今晚聚餐" id="gname" value="${groupName}" onblur="groupName=this.value"/>
           
           <label class="label">分帳方式</label>
           <div class="flex gap-2 mb-2">
@@ -103,7 +99,7 @@
           
           <label class="label">成員</label>
           <div class="flex gap-2 mb-2">
-            <input class="input flex-1" placeholder="輸入名字" id="mname" value="${newMemberName}" oninput="newMemberName=this.value" style="margin:0"/>
+            <input class="input flex-1" placeholder="輸入名字" id="mname" value="${newMemberName}" onblur="newMemberName=this.value" style="margin:0"/>
             <button class="btn" style="width:50px;background:#fef3c7" onclick="addMember()">+</button>
           </div>
           <div class="mb-2">${members.map(m=>`<span class="tag" onclick="removeMember('${m.id}')">${m.name} ×</span>`).join('')}</div>
@@ -113,7 +109,6 @@
         return;
       }
       
-      // ===== 群組詳情 =====
       if(page==='group'){
         const total=bills.reduce((s,b)=>s+b.total,0);
         app.innerHTML=`
@@ -147,32 +142,37 @@
         return;
       }
       
-      // ===== 新增消費 - AA模式 =====
       if(page==='add' && mode==='AA'){
-        // 計算服務費
         const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
         const serviceFee=Math.round(itemsTotal*(servicePercent/100));
         const grandTotal=itemsTotal+serviceFee+(parseFloat(sharedFee)||0);
+        
+        let itemInputs='';
+        items.forEach((it,idx)=>{
+          const nameVal=inputState['item_name_'+idx]!==undefined?inputState['item_name_'+idx]:it.name;
+          const amtVal=inputState['item_amt_'+idx]!==undefined?inputState['item_amt_'+idx]:it.amount;
+          itemInputs+=`
+            <div class="flex gap-2 mb-2" style="align-items:center">
+              <input class="input flex-1" placeholder="品項名稱" data-idx="${idx}" data-key="item_name" value="${nameVal}" style="margin:0"/>
+              <input type="number" class="input" placeholder="0" data-idx="${idx}" data-key="item_amt" value="${amtVal}" style="width:80px;margin:0"/>
+              <button class="btn" style="width:40px;padding:8px;background:#fecaca" onclick="items.splice(${idx},1);render()">×</button>
+            </div>
+          `;
+        });
         
         app.innerHTML=`
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='group';render()">← 返回</button>
           <h2 class="title">新增消費 - AA</h2>
           
           <label class="label">品項列表</label>
-          ${items.map((it,idx)=>`
-            <div class="flex gap-2 mb-2" style="align-items:center">
-              <input class="input flex-1" placeholder="品項名稱" value="${it.name}" oninput="items[idx].name=this.value;render()" style="margin:0"/>
-              <input type="number" class="input" placeholder="0" value="${it.amount}" oninput="items[idx].amount=this.value;render()" style="width:80px;margin:0"/>
-              <button class="btn" style="width:40px;padding:8px;background:#fecaca" onclick="items.splice(idx,1);render()">×</button>
-            </div>
-          `).join('')}
+          ${itemInputs}
           <button class="btn btn-sec mb-2" onclick="items.push({name:'',amount:''});render()">＋ 加品項</button>
           
           <label class="label">服務費 (%)</label>
-          <input type="number" class="input" placeholder="0" value="${servicePercent}" oninput="servicePercent=parseFloat(this.value)||0;render()"/>
+          <input type="number" class="input" placeholder="0" id="servicePercent" value="${servicePercent}"/>
           
           <label class="label">額外費用（外送費等）</label>
-          <input type="number" class="input" placeholder="0" value="${sharedFee}" oninput="sharedFee=this.value;render()"/>
+          <input type="number" class="input" placeholder="0" id="sharedFee" value="${sharedFee}"/>
           
           <div class="card" style="background:#fef9c3">
             <div class="flex" style="justify-content:space-between"><span>品項小計</span><span>NT$ ${itemsTotal}</span></div>
@@ -189,28 +189,32 @@
           
           <button class="btn btn-main" style="background:#fbbf24" onclick="saveBillAA()">儲存消費</button>
         `;
+        
+        // 綁定事件
+        setTimeout(()=>{
+          document.querySelectorAll('.input').forEach(el=>{
+            el.addEventListener('input',e=>{
+              const key=e.target.dataset.key;
+              const idx=e.target.dataset.idx;
+              if(key && idx!==undefined){
+                inputState[key+'_'+idx]=e.target.value;
+              }else if(e.target.id==='servicePercent'){
+                servicePercent=parseFloat(e.target.value)||0;
+              }else if(e.target.id==='sharedFee'){
+                sharedFee=e.target.value;
+              }
+              updateAAStats();
+            });
+          });
+        },0);
         return;
       }
       
-      // ===== 新增消費 - AB模式 =====
       if(page==='add' && mode==='AB'){
         const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
         const totalBill=parseFloat(amount)||0;
         const shared=parseFloat(sharedFee)||0;
         const disc=parseFloat(discount)||0;
-        
-        // 計算折扣分配
-        let discountPerPerson=0;
-        if(discountType==='proportional' && personalSum>0){
-          // 按比例
-          Object.keys(shares).forEach(mid=>{
-            const ratio=(shares[mid]||0)/personalSum;
-            shares[mid]=(shares[mid]||0)-disc*ratio;
-          });
-        }else if(discountType==='average'){
-          discountPerPerson=disc/members.length;
-        }
-        
         const actualTotal=personalSum+shared-disc;
         const diff=totalBill-(actualTotal||0);
         
@@ -219,13 +223,13 @@
           <h2 class="title">新增消費 - AB</h2>
           
           <label class="label">帳單總額</label>
-          <input type="number" class="input" placeholder="0" value="${amount}" oninput="amount=this.value;render()"/>
+          <input type="number" class="input" placeholder="0" id="billTotal" value="${amount}"/>
           
           <label class="label">公共費用（外送費等）</label>
-          <input type="number" class="input" placeholder="0" value="${sharedFee}" oninput="sharedFee=this.value;render()"/>
+          <input type="number" class="input" placeholder="0" id="sharedFeeAB" value="${sharedFee}"/>
           
           <label class="label">折扣</label>
-          <input type="number" class="input" placeholder="0" value="${discount}" oninput="discount=this.value;render()"/>
+          <input type="number" class="input" placeholder="0" id="discount" value="${discount}"/>
           <div class="flex gap-2 mb-2">
             <span class="tag ${discountType==='proportional'?'active':''}" onclick="discountType='proportional';render()">按比例</span>
             <span class="tag ${discountType==='average'?'active':''}" onclick="discountType='average';render()">平均</span>
@@ -235,12 +239,12 @@
           ${members.map(m=>`
             <div class="flex gap-2 mb-2" style="align-items:center">
               <span style="flex:1;font-weight:600">${m.name}</span>
-              <input type="number" class="input" placeholder="0" value="${shares[m.id]||''}" oninput="shares[m.id]=this.value;render()" style="width:100px;margin:0"/>
+              <input type="number" class="input" placeholder="0" data-mid="${m.id}" value="${shares[m.id]||''}" style="width:100px;margin:0"/>
             </div>
           `).join('')}
           
           ${amount && personalSum>0?`
-            <div class="card" style="background:#fef9c3">
+            <div class="card" style="background:#fef9c3" id="abStats">
               <div class="flex" style="justify-content:space-between"><span>個人總和</span><span>NT$ ${personalSum}</span></div>
               <div class="flex" style="justify-content:space-between"><span>公共費用</span><span>NT$ ${shared}</span></div>
               <div class="flex" style="justify-content:space-between"><span>折扣</span><span>-NT$ ${disc}</span></div>
@@ -256,12 +260,22 @@
           
           <button class="btn btn-main" style="background:#fbbf24" onclick="saveBillAB()">儲存消費</button>
         `;
+        
+        setTimeout(()=>{
+          document.querySelectorAll('.input').forEach(el=>{
+            el.addEventListener('input',e=>{
+              if(e.target.id==='billTotal')amount=e.target.value;
+              else if(e.target.id==='sharedFeeAB')sharedFee=e.target.value;
+              else if(e.target.id==='discount')discount=parseFloat(e.target.value)||0;
+              else if(e.target.dataset.mid)shares[e.target.dataset.mid]=e.target.value;
+              updateABStats();
+            });
+          });
+        },0);
         return;
       }
       
-      // ===== 結算 =====
       if(page==='settlement'){
-        // 計算結算
         const balances={};
         members.forEach(m=>balances[m.id]=0);
         
@@ -283,8 +297,6 @@
         });
         
         const total=bills.reduce((s,b)=>s+b.total,0);
-        
-        // 簡化還款路徑
         const debtors=[], creditors=[];
         members.forEach(m=>{
           const bal=balances[m.id]||0;
@@ -292,7 +304,6 @@
           if(bal>0.01)creditors.push({id:m.id,name:m.name,amount:bal});
         });
         
-        // 四捨五入校正（差額歸墊錢者）
         const totalBalance=Object.values(balances).reduce((s,v)=>s+v,0);
         const diff=Math.round(totalBalance);
         if(diff!==0 && payerId){
@@ -345,8 +356,86 @@
       }
     }
     
+    // ===== 更新統計數字（不重繪整個表單）=====
+    function updateAAStats(){
+      const sp=document.getElementById('servicePercent');
+      const sf=document.getElementById('sharedFee');
+      if(sp)servicePercent=parseFloat(sp.value)||0;
+      if(sf)sharedFee=sf.value;
+      
+      // 更新 items 數值
+      document.querySelectorAll('[data-key="item_name"]').forEach(el=>{
+        const idx=el.dataset.idx;
+        if(items[idx])items[idx].name=el.value;
+      });
+      document.querySelectorAll('[data-key="item_amt"]').forEach(el=>{
+        const idx=el.dataset.idx;
+        if(items[idx])items[idx].amount=el.value;
+      });
+      
+      // 重新計算
+      const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const serviceFee=Math.round(itemsTotal*(servicePercent/100));
+      const grandTotal=itemsTotal+serviceFee+(parseFloat(sharedFee)||0);
+      
+      // 更新顯示
+      const statsEl=document.querySelector('.card[style*="background:#fef9c3"]');
+      if(statsEl){
+        statsEl.innerHTML=`
+          <div class="flex" style="justify-content:space-between"><span>品項小計</span><span>NT$ ${itemsTotal}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>服務費(${servicePercent}%)</span><span>NT$ ${serviceFee}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>額外費用</span><span>NT$ ${parseFloat(sharedFee)||0}</span></div>
+          <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px"><span>總計</span><span>NT$ ${grandTotal}</span></div>
+        `;
+      }
+    }
+    
+    function updateABStats(){
+      const bt=document.getElementById('billTotal');
+      const sf=document.getElementById('sharedFeeAB');
+      const dc=document.getElementById('discount');
+      if(bt)amount=bt.value;
+      if(sf)sharedFee=sf.value;
+      if(dc)discount=parseFloat(dc.value)||0;
+      
+      // 更新 shares
+      document.querySelectorAll('[data-mid]').forEach(el=>{
+        shares[el.dataset.mid]=el.value;
+      });
+      
+      const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
+      const totalBill=parseFloat(amount)||0;
+      const shared=parseFloat(sharedFee)||0;
+      const disc=parseFloat(discount)||0;
+      const actualTotal=personalSum+shared-disc;
+      const diff=totalBill-(actualTotal||0);
+      
+      const statsEl=document.getElementById('abStats');
+      if(statsEl){
+        statsEl.innerHTML=`
+          <div class="flex" style="justify-content:space-between"><span>個人總和</span><span>NT$ ${personalSum}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>公共費用</span><span>NT$ ${shared}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>折扣</span><span>-NT$ ${disc}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>帳單總額</span><span>NT$ ${amount}</span></div>
+          ${diff!==0?`
+            <div class="diff-alert">
+              <p style="color:#b45309;font-weight:700">⚠️ 差額 NT$ ${Math.abs(diff).toFixed(0)}</p>
+              <button class="btn btn-sec mt-2" onclick="fixDiff()">一鍵修正差額</button>
+            </div>
+          `:''}
+        `;
+      }
+    }
+    
     // ===== 函式 =====
-    function addMember(){if(!newMemberName)return;members.push({id:uid(),name:newMemberName});newMemberName='';render();document.getElementById('mname').value='';}
+    function addMember(){
+      const input=document.getElementById('mname');
+      const name=input?input.value:newMemberName;
+      if(!name)return;
+      members.push({id:uid(),name});
+      newMemberName='';
+      render();
+    }
     function removeMember(id){members=members.filter(m=>m.id!==id);render();}
     function toggleSplit(id){splitMembers=splitMembers.includes(id)?splitMembers.filter(x=>x!==id):[...splitMembers,id];render();}
     
@@ -354,6 +443,8 @@
     function openGroup(id){group=getGroup(id);if(!group)return;members=group.members;bills=group.bills;mode=group.mode;page='group';render();}
     
     function saveBillAA(){
+      // 最後更新一次
+      updateAAStats();
       if(!items.length || !payerId)return;
       
       const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
@@ -382,10 +473,11 @@
       }
       
       group.bills=bills;group.updated=Date.now();saveGroup(group);
-      resetAdd();page='group';render();
+      inputState={};resetAdd();page='group';render();
     }
     
     function saveBillAB(){
+      updateABStats();
       if(!amount || !payerId)return;
       
       const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
@@ -393,7 +485,6 @@
       const shared=parseFloat(sharedFee)||0;
       const disc=parseFloat(discount)||0;
       
-      // 分配折扣
       let finalShares={...shares};
       if(disc>0){
         if(discountType==='proportional' && personalSum>0){
@@ -409,7 +500,6 @@
         }
       }
       
-      // 加上公共費用
       const sharedPerPerson=shared/members.length;
       Object.keys(finalShares).forEach(mid=>{
         finalShares[mid]=(finalShares[mid]||0)+sharedPerPerson;
@@ -417,7 +507,7 @@
       
       const bill={
         id:editBillId||uid(),
-        title:amount, // 顯示總額
+        title:amount,
         amount:totalBill,
         sharedFee:shared,
         discount,
@@ -437,7 +527,7 @@
       }
       
       group.bills=bills;group.updated=Date.now();saveGroup(group);
-      resetAdd();page='group';render();
+      inputState={};resetAdd();page='group';render();
     }
     
     function resetAdd(){title='';amount='';payerId='';shares={};sharedFee='';splitMembers=[];servicePercent=0;discount=0;editBillId=null;items=[];}
@@ -471,9 +561,8 @@
       const shared=parseFloat(sharedFee)||0;
       const disc=parseFloat(discount)||0;
       const diff=totalBill-(personalSum+shared-disc);
-      // 差額加到付款人
       shares[payerId]=(shares[payerId]||0)+diff;
-      render();
+      updateABStats();
     }
     
     function settle(){
@@ -517,7 +606,6 @@
       alert('✅ JSON 已複製到剪貼簿');
     }
     
-    // 初始化
     render();
   </script>
 </body>
