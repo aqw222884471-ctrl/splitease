@@ -7,36 +7,36 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     :root{
-      --primary:#FFB6C1;
-      --primary-dark:#FF8DA1;
-      --bg:#FFF5F5;
+      --primary:#A8E6CF;
+      --primary-dark:#3EB489;
+      --bg:#F0FFF4;
       --card-bg:#FFFFFF;
-      --text:#5D4E4E;
-      --text-light:#A99A9A;
-      --accent:#FF6B8A;
-      --success:#7DD3C0;
+      --text:#2D4A3E;
+      --text-light:#7A9A8A;
+      --accent:#3EB489;
+      --success:#3EB489;
       --warning:#FFD166;
       --danger:#FF6B6B;
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Noto Sans TC',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);min-height:100vh;background-image:radial-gradient(circle at 0% 0%, #FFE4E8 0%, transparent 50%),radial-gradient(circle at 100% 100%, #FFE4E8 0%, transparent 50%)}
+    body{font-family:'Noto Sans TC',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);min-height:100vh;background-image:radial-gradient(circle at 0% 0%, #D4F1E8 0%, transparent 50%),radial-gradient(circle at 100% 100%, #D4F1E8 0%, transparent 50%)}
     .container{max-width:420px;margin:0 auto;padding:20px;padding-bottom:120px}
     .title{font-size:24px;font-weight:700;color:var(--text);margin-bottom:16px}
-    .card{background:var(--card-bg);border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 4px 20px rgba(255,182,193,0.3);border:1px solid rgba(255,182,193,0.3)}
-    .btn{width:100%;padding:16px;border:none;border-radius:16px;font-size:16px;font-weight:500;cursor:pointer;transition:all 0.2s}
+    .card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 4px 20px rgba(168,230,207,0.3);border:1px solid rgba(168,230,207,0.4)}
+    .btn{width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:500;cursor:pointer;transition:all 0.2s}
     .btn:hover{transform:translateY(-2px)}
-    .btn-main{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:380px;z-index:100;box-shadow:0 8px 24px rgba(255,141,161,0.4)}
-    .btn-main:hover{box-shadow:0 12px 32px rgba(255,141,161,0.5)}
-    .btn-sec{background:#FFF;font(---weight:500;color:var(--text);border:2px solid var(--primary)}
+    .btn-main{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:380px;z-index:100;box-shadow:0 8px 24px rgba(62,180,137,0.35)}
+    .btn-main:hover{box-shadow:0 12px 32px rgba(62,180,137,0.45)}
+    .btn-sec{background:#FFF;color:var(--text);border:2px solid var(--primary)}
     .btn-sec:hover{background:var(--primary);color:white}
     .btn-danger{background:linear-gradient(135deg,var(--danger),#FF4757);color:white}
-    .input{width:100%;padding:14px 16px;border:2px solid #FFE4E8;border-radius:14px;font-size:15px;background:#FFF;transition:all 0.2s;font-family:inherit}
-    .input:focus{outline:none;border-color:var(--primary-dark);box-shadow:0 0 0 4px rgba(255,141,161,0.15)}
-    .tag{display:inline-block;background:#FFF5F5;padding:10px 16px;border-radius:12px;margin:4px;font-size:14px;border:2px solid transparent;cursor:pointer;transition:all 0.2s;font-weight:500}
+    .input{width:100%;padding:14px 16px;border:2px solid #D4F1E8;border-radius:12px;font-size:15px;background:#FFF;transition:all 0.2s;font-family:inherit}
+    .input:focus{outline:none;border-color:var(--primary-dark);box-shadow:0 0 0 4px rgba(62,180,137,0.15)}
+    .tag{display:inline-block;background:#F0FFF4;padding:10px 16px;border-radius:12px;margin:4px;font-size:14px;border:2px solid transparent;cursor:pointer;transition:all 0.2s;font-weight:500}
     .tag:hover{border-color:var(--primary)}
-    .tag.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;box-shadow:0 4px 12px rgba(255,141,161,0.3)}
-    .tag.checked{background:linear-gradient(135deg,var(--success),#5ED3B8);color:white;box-shadow:0 4px 12px rgba(125,211,192,0.3)}
-    .item{padding:16px 0;border-bottom:1px solid #FFE4E8}
+    .tag.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;box-shadow:0 4px 12px rgba(62,180,137,0.3)}
+    .tag.checked{background:linear-gradient(135deg,var(--success),#2D9A6D);color:white;box-shadow:0 4px 12px rgba(62,180,137,0.3)}
+    .item{padding:16px 0;border-bottom:1px solid #D4F1E8}
     .positive{color:var(--danger);font-weight:600}
     .negative{color:var(--success);font-weight:600}
     .label{font-size:13px;color:var(--text-light);margin-bottom:8px;font-weight:500;display:block}
@@ -52,7 +52,7 @@
     .badge{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600}
     h1{font-size:28px;font-weight:700;text-align:center;margin:24px 0;color:var(--text)}
     .logo{font-size:32px;margin-bottom:8px}
-    .stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #FFE4E8}
+    .stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #D4F1E8}
     .stat-row:last-child{border-bottom:none}
     .total-row{font-weight:700;font-size:18px;padding-top:12px;border-top:2px solid var(--primary);margin-top:8px}
   </style>
@@ -136,7 +136,7 @@
         app.innerHTML=`
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px;color:var(--text-light)" onclick="page='home';render()">← 返回</button>
           
-          <div class="card" style="background:linear-gradient(135deg,${mode==='AA'?'#FFF0F3':'#E8F9F5'},${mode==='AA'?'#FFE4E8':'#D4F1E8'});border-left:4px solid ${mode==='AA'?'var(--primary-dark)':'var(--success)'}">
+          <div class="card" style="background:linear-gradient(135deg,${mode==='AA'?'#E8F9F2':'#E8F5F2'},${mode==='AA'?'#D4F1E8':'#D4EBE8'});border-left:4px solid ${mode==='AA'?'var(--primary-dark)':'var(--accent)'}">
             <div style="font-size:22px;font-weight:700;color:var(--text)">${group.name}</div>
             <p class="text-sm" style="color:var(--text-light)">${members.length}人 · ${mode}</p>
           </div>
@@ -177,7 +177,7 @@
             <div class="flex gap-2 mb-2" style="align-items:center">
               <input class="input flex-1" placeholder="品項名稱" data-idx="${idx}" data-key="item_name" value="${nameVal}" style="margin:0"/>
               <input type="number" class="input" placeholder="0" data-idx="${idx}" data-key="item_amt" value="${amtVal}" style="width:80px;margin:0"/>
-              <button class="btn" style="width:40px;padding:8px;background:#FFE4E8;color:var(--danger)" onclick="items.splice(${idx},1);render()">×</button>
+              <button class="btn" style="width:40px;padding:8px;background:#D4F1E8;color:var(--primary-dark)" onclick="items.splice(${idx},1);render()">×</button>
             </div>
           `;
         });
@@ -196,7 +196,7 @@
           <label class="label">額外費用（外送費等）</label>
           <input type="number" class="input" placeholder="0" id="sharedFee" value="${sharedFee}"/>
           
-          <div class="card" style="background:linear-gradient(135deg,#FFF9FA,#FFF0F3)">
+          <div class="card" style="background:linear-gradient(135deg,#F0FFF4,#E8F9F2)">
             <div class="stat-row"><span>品項小計</span><span>NT$ ${itemsTotal}</span></div>
             <div class="stat-row"><span>服務費(${servicePercent}%)</span><span>NT$ ${serviceFee}</span></div>
             <div class="stat-row"><span>額外費用</span><span>NT$ ${Number(sharedFee)||0}</span></div>
@@ -263,7 +263,7 @@
             </div>
           `).join('')}
           
-          <div class="card" style="background:linear-gradient(135deg,#FFF9FA,#FFF0F3)" id="abStats">
+          <div class="card" style="background:linear-gradient(135deg,#F0FFF4,#E8F9F2)" id="abStats">
             <div class="stat-row"><span>個人餐點總和</span><span>NT$ ${personalSum}</span></div>
             <div class="stat-row"><span>實際刷卡總額</span><span>NT$ ${totalBill}</span></div>
             <div class="stat-row total-row">
@@ -325,7 +325,7 @@
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px;color:var(--text-light)" onclick="page='group';render()">← 返回</button>
           <h2 class="title">結算</h2>
           
-          <div class="card" style="text-align:center;background:linear-gradient(135deg,#FFF0F3,#FFE4E8)">
+          <div class="card" style="text-align:center;background:linear-gradient(135deg,#E8F9F2,#D4F1E8)">
             <p style="color:var(--text-light)">總金額</p>
             <p class="money">NT$ ${total}</p>
           </div>
@@ -333,7 +333,7 @@
           <div class="card">
             ${members.map(m=>{
               const amt=balances[m.id]||0;
-              return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #FFE4E8">
+              return `<div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #D4F1E8">
                 <span style="font-weight:600">${m.name}</span>
                 <span class="${amt>0?'positive':amt<0?'negative':''}">${amt>0?'+':''}${amt.toFixed(0)}</span>
               </div>`;
@@ -341,7 +341,7 @@
           </div>
           
           ${debtors.length && creditors.length?`
-            <div class="card" style="background:linear-gradient(135deg,#E8F9F5,#D4F1E8)">
+            <div class="card" style="background:linear-gradient(135deg,#E8F9F2,#D4F1E8)">
               <p style="font-weight:600;margin-bottom:12px">💰 還款路徑</p>
               ${debtors.map(d=>{
                 let remaining=d.amount;
