@@ -1,9 +1,5 @@
 {
   "framework": "static",
-  "buildCommand": "echo 'Static build'",
-  "installCommand": "echo 'No install needed'",
-  "outputDirectory": ".",
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" }
-  ]
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": "."
 }
