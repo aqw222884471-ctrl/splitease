@@ -39,25 +39,25 @@
 <body>
   <div id="app" class="container"></div>
   <script>
-    // ===== 工具函式 =====
     const uid=()=>Math.random().toString(36).substr(2,9);
     const load=k=>{try{return JSON.parse(localStorage.getItem('splitease_'+k))}catch{return null}};
     const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
     
-    // ===== 全域狀態 =====
     let page='home', group=null, groupName='', newMemberName='', members=[], bills=[], mode='AA';
     let title='', amount='', payerId='', shares={}, sharedFee='', splitMembers=[];
-    let editBillId=null, items=[]; // AA模式用
+    let editBillId=null, items=[]; 
     let servicePercent=0, discount=0, discountType='proportional';
     
-    // 用於追蹤輸入狀態（避免每次輸入都重繪）
+    // AB模式新欄位
+    let totalPaid=0; // 實際刷卡總額
+    let feePerPerson=0; // 每人分攤的服務費/外送費
+    
     let inputState={};
     
     function getGroups(){return Object.keys(localStorage).filter(k=>k.startsWith('splitease_g_')).map(k=>load(k.replace('splitease_',''))).filter(g=>g).sort((a,b)=>b.updated-a.updated);}
     function getGroup(id){return load('g_'+id);}
     function saveGroup(g){save('g_'+g.id,g);}
     
-    // ===== 渲染 =====
     function render(){
       const app=document.getElementById('app');
       const groups=getGroups();
@@ -71,7 +71,7 @@
                 <span style="font-size:20px;font-weight:700">${g.name}</span>
                 <span class="badge">${g.mode}</span>
               </div>
-              <p class="text-sm" style="color:#64748b;margin-top:8px">${g.members.length}人 · NT$ ${g.bills.reduce((s,b)=>s+b.total,0)}</p>
+              <p class="text-sm" style="color:#64748b;margin-top:8px">${g.members.length}人 · NT$ ${g.bills.reduce((s,b)=>s+(Number(b.total)||0),0)}</p>
             </div>
           `).join(''):'<p style="text-align:center;color:#64748b;padding:40px">尚無群組</p>'}
           <button class="btn btn-main" onclick="page='new';render()">＋ 新增群組</button>
@@ -110,7 +110,7 @@
       }
       
       if(page==='group'){
-        const total=bills.reduce((s,b)=>s+b.total,0);
+        const total=bills.reduce((s,b)=>s+(Number(b.total)||0),0);
         app.innerHTML=`
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='home';render()">← 返回</button>
           
@@ -129,23 +129,23 @@
               <div class="item" style="cursor:pointer" onclick="editBill('${b.id}')">
                 <div style="display:flex;justify-content:space-between">
                   <span>${b.title}</span>
-                  <span style="font-weight:700">${b.total}</span>
+                  <span style="font-weight:700">${Number(b.total)||0}</span>
                 </div>
                 <p class="text-xs" style="color:#64748b">${b.payerName} 付 · ${new Date(b.created).toLocaleDateString()}</p>
               </div>
             `).join('')}
           </div>
           
-          <button class="btn btn-main" onclick="page='add';items=[];title='';amount='';payerId=members[0]?.id;splitMembers=members.map(m=>m.id);servicePercent=0;sharedFee='';discount=0;editBillId=null;render()">＋ 新增消費</button>
+          <button class="btn btn-main" onclick="page='add';items=[];title='';amount='';totalPaid=0;feePerPerson=0;payerId=members[0]?.id;splitMembers=members.map(m=>m.id);servicePercent=0;sharedFee='';discount=0;editBillId=null;render()">＋ 新增消費</button>
           <button class="btn btn-sec mt-2" onclick="page='settlement';render()">📊 結算</button>
         `;
         return;
       }
       
       if(page==='add' && mode==='AA'){
-        const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+        const itemsTotal=items.reduce((s,i)=>s+(Number(i.amount)||0),0);
         const serviceFee=Math.round(itemsTotal*(servicePercent/100));
-        const grandTotal=itemsTotal+serviceFee+(parseFloat(sharedFee)||0);
+        const grandTotal=itemsTotal+serviceFee+(Number(sharedFee)||0);
         
         let itemInputs='';
         items.forEach((it,idx)=>{
@@ -177,7 +177,7 @@
           <div class="card" style="background:#fef9c3">
             <div class="flex" style="justify-content:space-between"><span>品項小計</span><span>NT$ ${itemsTotal}</span></div>
             <div class="flex" style="justify-content:space-between"><span>服務費(${servicePercent}%)</span><span>NT$ ${serviceFee}</span></div>
-            <div class="flex" style="justify-content:space-between"><span>額外費用</span><span>NT$ ${parseFloat(sharedFee)||0}</span></div>
+            <div class="flex" style="justify-content:space-between"><span>額外費用</span><span>NT$ ${Number(sharedFee)||0}</span></div>
             <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px"><span>總計</span><span>NT$ ${grandTotal}</span></div>
           </div>
           
@@ -190,7 +190,6 @@
           <button class="btn btn-main" style="background:#fbbf24" onclick="saveBillAA()">儲存消費</button>
         `;
         
-        // 綁定事件
         setTimeout(()=>{
           document.querySelectorAll('.input').forEach(el=>{
             el.addEventListener('input',e=>{
@@ -199,7 +198,7 @@
               if(key && idx!==undefined){
                 inputState[key+'_'+idx]=e.target.value;
               }else if(e.target.id==='servicePercent'){
-                servicePercent=parseFloat(e.target.value)||0;
+                servicePercent=Number(e.target.value)||0;
               }else if(e.target.id==='sharedFee'){
                 sharedFee=e.target.value;
               }
@@ -211,31 +210,34 @@
       }
       
       if(page==='add' && mode==='AB'){
-        const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
-        const totalBill=parseFloat(amount)||0;
-        const shared=parseFloat(sharedFee)||0;
-        const disc=parseFloat(discount)||0;
-        const actualTotal=personalSum+shared-disc;
-        const diff=totalBill-(actualTotal||0);
+        // 計算個人總和
+        let personalSum=0;
+        members.forEach(m=>{
+          const val=Number(shares[m.id]||0);
+          personalSum+=val;
+        });
+        
+        // 計算差額 = 實際刷卡 - 個人總和
+        const totalBill=Number(totalPaid)||0;
+        let diff=totalBill - personalSum;
+        
+        // 如果有差額，自動平分給每個人作為服務費
+        if(diff!==0 && members.length>0){
+          feePerPerson=Math.round(diff/members.length*100)/100; // 四捨五入到小數點第二位
+        }else{
+          feePerPerson=0;
+        }
+        
+        const grandTotal=personalSum + (feePerPerson * members.length);
         
         app.innerHTML=`
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='group';render()">← 返回</button>
           <h2 class="title">新增消費 - AB</h2>
           
-          <label class="label">帳單總額</label>
-          <input type="number" class="input" placeholder="0" id="billTotal" value="${amount}"/>
+          <label class="label">實際刷卡總額 (Total Paid)</label>
+          <input type="number" class="input" placeholder="0" id="totalPaid" value="${totalPaid}"/>
           
-          <label class="label">公共費用（外送費等）</label>
-          <input type="number" class="input" placeholder="0" id="sharedFeeAB" value="${sharedFee}"/>
-          
-          <label class="label">折扣</label>
-          <input type="number" class="input" placeholder="0" id="discount" value="${discount}"/>
-          <div class="flex gap-2 mb-2">
-            <span class="tag ${discountType==='proportional'?'active':''}" onclick="discountType='proportional';render()">按比例</span>
-            <span class="tag ${discountType==='average'?'active':''}" onclick="discountType='average';render()">平均</span>
-          </div>
-          
-          <label class="label">個人點餐金額</label>
+          <label class="label">個人餐點金額 (原價)</label>
           ${members.map(m=>`
             <div class="flex gap-2 mb-2" style="align-items:center">
               <span style="flex:1;font-weight:600">${m.name}</span>
@@ -243,20 +245,22 @@
             </div>
           `).join('')}
           
-          ${amount && personalSum>0?`
-            <div class="card" style="background:#fef9c3" id="abStats">
-              <div class="flex" style="justify-content:space-between"><span>個人總和</span><span>NT$ ${personalSum}</span></div>
-              <div class="flex" style="justify-content:space-between"><span>公共費用</span><span>NT$ ${shared}</span></div>
-              <div class="flex" style="justify-content:space-between"><span>折扣</span><span>-NT$ ${disc}</span></div>
-              <div class="flex" style="justify-content:space-between"><span>帳單總額</span><span>NT$ ${amount}</span></div>
-              ${diff!==0?`
-                <div class="diff-alert">
-                  <p style="color:#b45309;font-weight:700">⚠️ 差額 NT$ ${Math.abs(diff).toFixed(0)}</p>
-                  <button class="btn btn-sec mt-2" onclick="fixDiff()">一鍵修正差額</button>
-                </div>
-              `:''}
+          <div class="card" style="background:#fef9c3" id="abStats">
+            <div class="flex" style="justify-content:space-between"><span>個人餐點總和</span><span>NT$ ${personalSum}</span></div>
+            <div class="flex" style="justify-content:space-between"><span>實際刷卡總額</span><span>NT$ ${totalBill}</span></div>
+            <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px;border-top:2px solid #eab308;padding-top:8px">
+              <span>差額（服務費/外送費）</span>
+              <span style="color:${diff>0?'#22c55e':diff<0?'#ef4444':'#1e293b'}">${diff>0?'+':''}${diff.toFixed(0)}</span>
             </div>
-          `:''}
+            <div class="flex" style="justify-content:space-between;margin-top:8px">
+              <span>每人平均分攤</span>
+              <span style="color:#b45309;font-weight:600">NT$ ${feePerPerson.toFixed(0)}</span>
+            </div>
+            <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px;border-top:2px solid #eab308;padding-top:8px">
+              <span>總計</span>
+              <span>NT$ ${grandTotal.toFixed(0)}</span>
+            </div>
+          </div>
           
           <button class="btn btn-main" style="background:#fbbf24" onclick="saveBillAB()">儲存消費</button>
         `;
@@ -264,10 +268,11 @@
         setTimeout(()=>{
           document.querySelectorAll('.input').forEach(el=>{
             el.addEventListener('input',e=>{
-              if(e.target.id==='billTotal')amount=e.target.value;
-              else if(e.target.id==='sharedFeeAB')sharedFee=e.target.value;
-              else if(e.target.id==='discount')discount=parseFloat(e.target.value)||0;
-              else if(e.target.dataset.mid)shares[e.target.dataset.mid]=e.target.value;
+              if(e.target.id==='totalPaid'){
+                totalPaid=Number(e.target.value)||0;
+              }else if(e.target.dataset.mid){
+                shares[e.target.dataset.mid]=e.target.value;
+              }
               updateABStats();
             });
           });
@@ -282,33 +287,27 @@
         bills.forEach(b=>{
           if(mode==='AA'){
             const list=b.splitMembers||members.map(m=>m.id);
-            const each=b.total/list.length;
+            const each=Number(b.total)/list.length;
             if(b.payerId){
-              balances[b.payerId]+=b.total;
+              balances[b.payerId]+=Number(b.total);
               list.forEach(mid=>{if(mid!==b.payerId)balances[mid]-=each;});
             }
           }else{
             if(b.shares){
               Object.entries(b.shares).forEach(([mid,amt])=>{
-                balances[mid]=(balances[mid]||0)+amt;
+                balances[mid]=(balances[mid]||0)+Number(amt);
               });
             }
           }
         });
         
-        const total=bills.reduce((s,b)=>s+b.total,0);
+        const total=bills.reduce((s,b)=>s+(Number(b.total)||0),0);
         const debtors=[], creditors=[];
         members.forEach(m=>{
           const bal=balances[m.id]||0;
           if(bal<-0.01)debtors.push({id:m.id,name:m.name,amount:-bal});
           if(bal>0.01)creditors.push({id:m.id,name:m.name,amount:bal});
         });
-        
-        const totalBalance=Object.values(balances).reduce((s,v)=>s+v,0);
-        const diff=Math.round(totalBalance);
-        if(diff!==0 && payerId){
-          balances[payerId]=(balances[payerId]||0)+diff;
-        }
         
         app.innerHTML=`
           <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='group';render()">← 返回</button>
@@ -356,14 +355,12 @@
       }
     }
     
-    // ===== 更新統計數字（不重繪整個表單）=====
     function updateAAStats(){
       const sp=document.getElementById('servicePercent');
       const sf=document.getElementById('sharedFee');
-      if(sp)servicePercent=parseFloat(sp.value)||0;
+      if(sp)servicePercent=Number(sp.value)||0;
       if(sf)sharedFee=sf.value;
       
-      // 更新 items 數值
       document.querySelectorAll('[data-key="item_name"]').forEach(el=>{
         const idx=el.dataset.idx;
         if(items[idx])items[idx].name=el.value;
@@ -373,61 +370,66 @@
         if(items[idx])items[idx].amount=el.value;
       });
       
-      // 重新計算
-      const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const itemsTotal=items.reduce((s,i)=>s+(Number(i.amount)||0),0);
       const serviceFee=Math.round(itemsTotal*(servicePercent/100));
-      const grandTotal=itemsTotal+serviceFee+(parseFloat(sharedFee)||0);
+      const grandTotal=itemsTotal+serviceFee+(Number(sharedFee)||0);
       
-      // 更新顯示
       const statsEl=document.querySelector('.card[style*="background:#fef9c3"]');
       if(statsEl){
         statsEl.innerHTML=`
           <div class="flex" style="justify-content:space-between"><span>品項小計</span><span>NT$ ${itemsTotal}</span></div>
           <div class="flex" style="justify-content:space-between"><span>服務費(${servicePercent}%)</span><span>NT$ ${serviceFee}</span></div>
-          <div class="flex" style="justify-content:space-between"><span>額外費用</span><span>NT$ ${parseFloat(sharedFee)||0}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>額外費用</span><span>NT$ ${Number(sharedFee)||0}</span></div>
           <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px"><span>總計</span><span>NT$ ${grandTotal}</span></div>
         `;
       }
     }
     
     function updateABStats(){
-      const bt=document.getElementById('billTotal');
-      const sf=document.getElementById('sharedFeeAB');
-      const dc=document.getElementById('discount');
-      if(bt)amount=bt.value;
-      if(sf)sharedFee=sf.value;
-      if(dc)discount=parseFloat(dc.value)||0;
+      const tp=document.getElementById('totalPaid');
+      if(tp)totalPaid=Number(tp.value)||0;
       
-      // 更新 shares
       document.querySelectorAll('[data-mid]').forEach(el=>{
         shares[el.dataset.mid]=el.value;
       });
       
-      const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
-      const totalBill=parseFloat(amount)||0;
-      const shared=parseFloat(sharedFee)||0;
-      const disc=parseFloat(discount)||0;
-      const actualTotal=personalSum+shared-disc;
-      const diff=totalBill-(actualTotal||0);
+      let personalSum=0;
+      members.forEach(m=>{
+        personalSum+=Number(shares[m.id]||0);
+      });
+      
+      const totalBill=totalPaid;
+      let diff=totalBill - personalSum;
+      
+      if(diff!==0 && members.length>0){
+        feePerPerson=Math.round(diff/members.length*100)/100;
+      }else{
+        feePerPerson=0;
+      }
+      
+      const grandTotal=personalSum + (feePerPerson * members.length);
       
       const statsEl=document.getElementById('abStats');
       if(statsEl){
         statsEl.innerHTML=`
-          <div class="flex" style="justify-content:space-between"><span>個人總和</span><span>NT$ ${personalSum}</span></div>
-          <div class="flex" style="justify-content:space-between"><span>公共費用</span><span>NT$ ${shared}</span></div>
-          <div class="flex" style="justify-content:space-between"><span>折扣</span><span>-NT$ ${disc}</span></div>
-          <div class="flex" style="justify-content:space-between"><span>帳單總額</span><span>NT$ ${amount}</span></div>
-          ${diff!==0?`
-            <div class="diff-alert">
-              <p style="color:#b45309;font-weight:700">⚠️ 差額 NT$ ${Math.abs(diff).toFixed(0)}</p>
-              <button class="btn btn-sec mt-2" onclick="fixDiff()">一鍵修正差額</button>
-            </div>
-          `:''}
+          <div class="flex" style="justify-content:space-between"><span>個人餐點總和</span><span>NT$ ${personalSum}</span></div>
+          <div class="flex" style="justify-content:space-between"><span>實際刷卡總額</span><span>NT$ ${totalBill}</span></div>
+          <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px;border-top:2px solid #eab308;padding-top:8px">
+            <span>差額（服務費/外送費）</span>
+            <span style="color:${diff>0?'#22c55e':diff<0?'#ef4444':'#1e293b'}">${diff>0?'+':''}${diff.toFixed(0)}</span>
+          </div>
+          <div class="flex" style="justify-content:space-between;margin-top:8px">
+            <span>每人平均分攤</span>
+            <span style="color:#b45309;font-weight:600">NT$ ${feePerPerson.toFixed(0)}</span>
+          </div>
+          <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px;border-top:2px solid #eab308;padding-top:8px">
+            <span>總計</span>
+            <span>NT$ ${grandTotal.toFixed(0)}</span>
+          </div>
         `;
       }
     }
     
-    // ===== 函式 =====
     function addMember(){
       const input=document.getElementById('mname');
       const name=input?input.value:newMemberName;
@@ -443,13 +445,12 @@
     function openGroup(id){group=getGroup(id);if(!group)return;members=group.members;bills=group.bills;mode=group.mode;page='group';render();}
     
     function saveBillAA(){
-      // 最後更新一次
       updateAAStats();
       if(!items.length || !payerId)return;
       
-      const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const itemsTotal=items.reduce((s,i)=>s+(Number(i.amount)||0),0);
       const serviceFee=Math.round(itemsTotal*(servicePercent/100));
-      const shared=parseFloat(sharedFee)||0;
+      const shared=Number(sharedFee)||0;
       const total=itemsTotal+serviceFee+shared;
       
       const bill={
@@ -478,40 +479,29 @@
     
     function saveBillAB(){
       updateABStats();
-      if(!amount || !payerId)return;
+      if(!totalPaid || !payerId)return;
       
-      const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
-      const totalBill=parseFloat(amount);
-      const shared=parseFloat(sharedFee)||0;
-      const disc=parseFloat(discount)||0;
+      let personalSum=0;
+      members.forEach(m=>{
+        personalSum+=Number(shares[m.id]||0);
+      });
       
-      let finalShares={...shares};
-      if(disc>0){
-        if(discountType==='proportional' && personalSum>0){
-          Object.keys(finalShares).forEach(mid=>{
-            const ratio=(finalShares[mid]||0)/personalSum;
-            finalShares[mid]=(finalShares[mid]||0)-disc*ratio;
-          });
-        }else{
-          const avg=disc/members.length;
-          Object.keys(finalShares).forEach(mid=>{
-            finalShares[mid]=(finalShares[mid]||0)-avg;
-          });
-        }
-      }
+      const totalBill=Number(totalPaid);
+      const diff=totalBill - personalSum;
       
-      const sharedPerPerson=shared/members.length;
-      Object.keys(finalShares).forEach(mid=>{
-        finalShares[mid]=(finalShares[mid]||0)+sharedPerPerson;
+      // 計算最終每人應付金額 = 個人餐點 + 平均分攤的服務費
+      let finalShares={};
+      members.forEach(m=>{
+        const personal=Number(shares[m.id]||0);
+        finalShares[m.id]=personal + feePerPerson;
       });
       
       const bill={
         id:editBillId||uid(),
-        title:amount,
-        amount:totalBill,
-        sharedFee:shared,
-        discount,
-        discountType,
+        title:`總額 ${totalBill}`,
+        totalPaid:totalBill,
+        personalSum:personalSum,
+        feePerPerson:feePerPerson,
         total:totalBill,
         payerId,
         payerName:members.find(m=>m.id===payerId)?.name||'?',
@@ -530,7 +520,7 @@
       inputState={};resetAdd();page='group';render();
     }
     
-    function resetAdd(){title='';amount='';payerId='';shares={};sharedFee='';splitMembers=[];servicePercent=0;discount=0;editBillId=null;items=[];}
+    function resetAdd(){title='';amount='';totalPaid=0;feePerPerson=0;payerId='';shares={};sharedFee='';splitMembers=[];servicePercent=0;discount=0;editBillId=null;items=[];}
     
     function editBill(id){
       const bill=bills.find(b=>b.id===id);
@@ -544,25 +534,21 @@
         payerId=bill.payerId;
         splitMembers=bill.splitMembers||members.map(m=>m.id);
       }else{
-        amount=bill.amount||'';
-        sharedFee=bill.sharedFee||'';
-        discount=bill.discount||0;
-        discountType=bill.discountType||'proportional';
+        totalPaid=bill.totalPaid||0;
+        // 重建 shares（個人餐點部分）
+        if(bill.shares && bill.feePerPerson!==undefined){
+          shares={};
+          members.forEach(m=>{
+            shares[m.id]=Number(bill.shares[m.id]||0) - bill.feePerPerson;
+          });
+        }else{
+          shares=bill.shares||{};
+        }
+        feePerPerson=bill.feePerPerson||0;
         payerId=bill.payerId;
-        shares=bill.shares||{};
       }
       
       page='add';render();
-    }
-    
-    function fixDiff(){
-      const totalBill=parseFloat(amount)||0;
-      const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
-      const shared=parseFloat(sharedFee)||0;
-      const disc=parseFloat(discount)||0;
-      const diff=totalBill-(personalSum+shared-disc);
-      shares[payerId]=(shares[payerId]||0)+diff;
-      updateABStats();
     }
     
     function settle(){
@@ -573,22 +559,42 @@
     }
     
     function copyResult(){
-      const total=bills.reduce((s,b)=>s+b.total,0);
+      const total=bills.reduce((s,b)=>s+(Number(b.total)||0),0);
       const balances={};
       members.forEach(m=>balances[m.id]=0);
       
       bills.forEach(b=>{
         if(mode==='AA'){
           const list=b.splitMembers||members.map(m=>m.id);
-          const each=b.total/list.length;
-          if(b.payerId){balances[b.payerId]+=b.total;list.forEach(mid=>{if(mid!==b.payerId)balances[mid]-=each;});}
+          const each=Number(b.total)/list.length;
+          if(b.payerId){balances[b.payerId]+=Number(b.total);list.forEach(mid=>{if(mid!==b.payerId)balances[mid]-=each;});}
         }else{
-          if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>balances[mid]=(balances[mid]||0)+amt);
+          if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>balances[mid]=(balances[mid]||0)+Number(amt));
         }
       });
       
       let text=`🍽️ ${group.name} 結算\n`;
       text+=`總金額：NT$ ${total}\n\n`;
+      
+      if(mode==='AB'){
+        // AB模式顯示詳細內容
+        bills.forEach(b=>{
+          if(b.feePerPerson!==undefined){
+            text+=`\n📝 單筆消費：NT$ ${b.total}\n`;
+            if(b.shares){
+              Object.entries(b.shares).forEach(([mid,amt])=>{
+                const m=members.find(x=>x.id===mid);
+                if(m){
+                  const personal=Number(amt)-b.feePerPerson;
+                  text+=`  • ${m.name}：餐點 NT$ ${personal} + 服務費 NT$ ${b.feePerPerson} = NT$ ${Number(amt).toFixed(0)}\n`;
+                }
+              });
+            }
+          }
+        });
+        text+='\n';
+      }
+      
       members.forEach(m=>{
         const amt=balances[m.id]||0;
         if(amt>0)text+=`${m.name} 應付：NT$ ${amt.toFixed(0)}\n`;
