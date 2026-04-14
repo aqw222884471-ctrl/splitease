@@ -2,231 +2,523 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SplitEase - 分帳</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;min-height:100vh}
-    .container{max-width:420px;margin:0 auto;padding:20px;padding-bottom:80px}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;min-height:100vh;background-image:radial-gradient(circle at 20% 20%, #fef3c7 0%, transparent 50%),radial-gradient(circle at 80% 80%, #fef3c7 0%, transparent 50%);background-color:#fafaf9}
+    .container{max-width:480px;margin:0 auto;padding:20px;padding-bottom:120px}
     .title{font-size:28px;font-weight:700;color:#1e293b}
-    .card{background:white;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
-    .btn{width:100%;padding:16px;border:none;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer}
-    .btn-main{background:#6366f1;color:white;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:380px;box-shadow:0 4px 12px rgba(99,102,241,0.4)}
-    .btn-sec{background:#e2e8f0;color:#475569}
-    .btn-danger{background:#ef4444;color:white}
-    .input{width:100%;padding:16px;border:2px solid #e2e8f0;border-radius:12px;font-size:18px;margin-bottom:16px}
-    .input:focus{outline:none;border-color:#6366f1}
-    .tag{display:inline-block;background:#f1f5f9;padding:12px 16px;border-radius:10px;margin:4px;font-size:16px;cursor:pointer}
-    .tag.active{background:#6366f1;color:white}
-    .item{border-bottom:1px solid #f1f5f9;padding:16px 0}
-    .positive{color:#ef4444;font-weight:600}
-    .negative{color:#22c55e;font-weight:600}
-    .label{font-size:14px;color:#64748b;margin-bottom:8px;display:block}
-    .money{font-size:32px;font-weight:700;color:#1e293b}
-    .suggestion{background:#fef3c7;border:1px solid #f59e0b;padding:12px;border-radius:8px;margin-top:8px}
+    .card{background:#fff;border-radius:24px;padding:20px;margin-bottom:16px;box-shadow:4px 4px 0 #1e293b;border:2px solid #1e293b}
+    .btn{width:100%;padding:16px;border:none;border-radius:16px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:3px 3px 0 #1e293b;border:2px solid #1e293b}
+    .btn-main{background:#fbbf24;color:#1e293b;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:440px;z-index:100}
+    .btn-sec{background:#fff;color:#1e293b}
+    .btn-danger{background:#ef4444;color:#fff}
+    .input{width:100%;padding:14px;border:2px solid #1e293b;border-radius:12px;font-size:16px;background:#fff}
+    .input:focus{outline:none;box-shadow:2px 2px 0 #1e293b}
+    .tag{display:inline-block;background:#fef3c7;padding:10px 14px;border-radius:12px;margin:4px;font-size:14px;border:2px solid #1e293b;cursor:pointer;box-shadow:2px 2px 0 #1e293b}
+    .tag.active{background:#fbbf24}
+    .tag.checked{background:#22c55e;color:#fff}
+    .item{border-bottom:1px solid #e5e7eb;padding:12px 0}
+    .positive{color:#ef4444;font-weight:700}
+    .negative{color:#22c55e;font-weight:700}
+    .label{font-size:14px;color:#64748b;margin-bottom:6px;font-weight:600;display:block}
+    .money{font-size:28px;font-weight:700;color:#1e293b}
+    .diff-alert{background:#fef9c3;border:2px solid #eab308;border-radius:12px;padding:12px;margin:8px 0}
+    .flex{display:flex;flex-wrap:wrap}
+    .flex-1{flex:1}
+    .gap-2{gap:8px}
+    .mt-2{margin-top:8px}
+    .mb-2{margin-bottom:8px}
+    .text-sm{font-size:14px}
+    .text-xs{font-size:12px}
+    .badge{background:#fbbf24;padding:4px 8px;border-radius:8px;font-size:12px;font-weight:700}
+    h1{font-size:32px;font-weight:800;text-align:center;margin:20px 0}
   </style>
 </head>
 <body>
   <div id="app" class="container"></div>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-  <script type="text/babel">
-    const{useState,useEffect}=React;
+  <script>
+    // ===== 工具函式 =====
+    const uid=()=>Math.random().toString(36).substr(2,9);
+    const load=k=>{try{return JSON.parse(localStorage.getItem('splitease_'+k))}catch{return null}};
+    const save=(k,v)=>localStorage.setItem('splitease_'+k,JSON.stringify(v));
     
-    // 使用相對路徑，會自動走 current domain
-    const api = {
-      createGroup: (data) => axios.post('/api/groups', data),
-      getGroups: () => axios.get('/api/groups'),
-      getGroup: (id) => axios.get(`/api/groups/${id}`),
-      addBill: (groupId, data) => axios.post(`/api/groups/${groupId}/bills`, data),
-      getBills: (groupId) => axios.get(`/api/groups/${groupId}/bills`),
-      getSettlement: (groupId) => axios.get(`/api/groups/${groupId}/settlement`),
-      settleGroup: (groupId) => axios.post(`/api/groups/${groupId}/settle`),
-    };
+    // ===== 全域狀態 =====
+    let page='home', group=null, groupName='', newMemberName='', members=[], bills=[], mode='AA';
+    let title='', amount='', payerId='', shares={}, sharedFee='', splitMembers=[];
+    let editBillId=null, items=[]; // AA模式用
     
-    // 本地儲存輔助
-    const load=k=>JSON.parse(localStorage.getItem('split_g_'+k)||'null');
-    const save=(k,v)=>localStorage.setItem('split_g_'+k,JSON.stringify(v));
-    function getLocalGroups(){return Object.keys(localStorage).filter(k=>k.startsWith('split_g_')).map(k=>load(k.replace('split_',''))).filter(g=>g).sort((a,b)=>b.created-a.created);}
-    function getLocalGroup(id){return load('g_'+id);}
-    function saveLocalGroup(g){save('g_'+g.id,g);}
+    // AA模式：服務費百分比
+    let servicePercent=0;
     
-    function Home(){
-      const[groups,setGroups]=useState([]);
-      const[loading,setLoading]=useState(true);
-      useEffect(()=>{loadGroups();},[]);
-      const loadGroups = async() => {
-        try{const res = await api.getGroups();setGroups(res.data||[]);}
-        catch{setGroups(getLocalGroups());}
-        finally{setLoading(false);}
-      };
-      if(loading) return <div className="text-center py-8">載入中...</div>;
-      return(
-        <div>
-          <div className="text-center" style={{padding:'40px 0'}}><h1 style={{fontSize:'32px',fontWeight:'700',color:'#6366f1'}}>SplitEase</h1></div>
-          {groups.length===0 && <div className="text-center text-gray py-8">尚無群組</div>}
-          {groups.map(g=>(
-            <div key={g.id} className="card" style={{cursor:'pointer'}} onClick={()=>n(g.id)}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <span style={{fontSize:'20px',fontWeight:'600'}}>{g.name}</span>
-                <span style={{background:g.mode==='AA'?'#fee2e2':'#dcfce7',color:g.mode==='AA'?'#ef4444':'#22c55e',padding:'4px 12px',borderRadius:'8px',fontSize:'14px',fontWeight:'600'}}>{g.mode}</span>
+    // AB模式：折扣
+    let discount=0, discountType='proportional'; // proportional or average
+    
+    function getGroups(){return Object.keys(localStorage).filter(k=>k.startsWith('splitease_g_')).map(k=>load(k.replace('splitease_',''))).filter(g=>g).sort((a,b)=>b.updated-a.updated);}
+    function getGroup(id){return load('g_'+id);}
+    function saveGroup(g){save('g_'+g.id,g);}
+    
+    // ===== 渲染 =====
+    function render(){
+      const app=document.getElementById('app');
+      const groups=getGroups();
+      
+      // ===== 首頁 =====
+      if(page==='home'){
+        app.innerHTML=`
+          <h1>🍽️ SplitEase</h1>
+          ${groups.length?groups.map(g=>`
+            <div class="card" style="cursor:pointer" onclick="openGroup('${g.id}')">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:20px;font-weight:700">${g.name}</span>
+                <span class="badge">${g.mode}</span>
               </div>
-              <p style={{color:'#94a3b8',fontSize:'14px',marginTop:'8px'}}>{g.members?.length||0}人 · NT$ {g.totalAmount||0}</p>
+              <p class="text-sm" style="color:#64748b;margin-top:8px">${g.members.length}人 · NT$ ${g.bills.reduce((s,b)=>s+b.total,0)}</p>
             </div>
-          ))}
-          <button className="btn btn-sec" style={{marginTop:'20px'}} onClick={()=>n('new')}>＋ 新增群組</button>
-        </div>
-      );
-    }
-    
-    function NewGroup({onBack}){
-      const[groupName,setGroupName]=useState('');
-      const[mode,setMode]=useState('AA');
-      const[members,setMembers]=useState([]);
-      const[newMember,setNewMember]=useState('');
-      const addMember=()=>{if(!newMember)return;setMembers([...members,{id:Date.now(),name:newMember}]);setNewMember('');};
-      const removeMember=(id)=>{setMembers(members.filter(m=>m.id!==id));};
-      const createGroup=async()=>{if(!groupName)return;const data={name:groupName,mode,members};try{const res=await api.createGroup(data);n(res.data.id);}catch{e=(const id='g_'+Date.now();const g={id,name:groupName,mode,members,bills:[],totalAmount:0,created:Date.now()};saveLocalGroup(g);n(id));}};
-      return(
-        <div>
-          <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
-          <h2 className="title" style={{marginBottom:'24px'}}>新增群組</h2>
-          <label className="label">群組名稱</label>
-          <input className="input" placeholder="例如：今晚聚餐" value={groupName} onChange={e=>setGroupName(e.target.value)}/>
-          <label className="label">分帳方式</label>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'24px'}}>
-            <div className="card" style={{cursor:'pointer',textAlign:'center',border:mode==='AA'?'2px solid #6366f1':''}} onClick={()=>setMode('AA')}><div style={{fontSize:'24px'}}>✂️</div><div style={{fontWeight:'600'}}>AA</div></div>
-            <div className="card" style={{cursor:'pointer',textAlign:'center',border:mode==='AB'?'2px solid #6366f1':''}} onClick={()=>setMode('AB')}><div style={{fontSize:'24px'}}>📝</div><div style={{fontWeight:'600'}}>AB</div></div>
-          </div>
-          <label className="label">成員</label>
-          <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
-            <input className="input flex-1" placeholder="輸入名字" value={newMember} onChange={e=>setNewMember(e.target.value)} style={{margin:0}}/>
-            <button className="btn" style={{width:'60px',background:'#e2e8f0'}} onClick={addMember}>+</button>
-          </div>
-          <div style={{marginBottom:'24px'}}>{members.map(m=><span key={m.id} className="tag" onClick={()=>removeMember(m.id)}>{m.name} ×</span>)}</div>
-          <button className="btn btn-main" style={{background:groupName?'#6366f1':'#94a3b8'}} onClick={createGroup} disabled={!groupName}>建立群組</button>
-        </div>
-      );
-    }
-    
-    function GroupDetail({groupId,onBack}){
-      const[group,setGroup]=useState(null);
-      const[bills,setBills]=useState([]);
-      useEffect(()=>{loadGroup();},[groupId]);
-      const loadGroup = async() => {
-        try{const g=await api.getGroup(groupId);const b=await api.getBills(groupId);setGroup(g.data);setBills(b.data||[]);}
-        catch{e=(setGroup(getLocalGroup(groupId)),setBills(getLocalGroup(groupId)?.bills||[]));}
-      };
-      if(!group) return <div className="text-center py-8">載入中...</div>;
-      const total=bills.reduce((s,b)=>s+b.amount,0);
-      return(
-        <div>
-          <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
-          <div className="card" style={{background:group.mode==='AA'?'#fef2f2':'#f0fdf4',borderLeft:'4px solid '+(group.mode==='AA'?'#ef4444':'#22c55e')}}>
-            <div style={{fontSize:'24px',fontWeight:'700'}}>{group.name}</div>
-            <p style={{color:'#94a3b8',fontSize:'14px'}}>{group.members?.length||0}人 · {group.mode}</p>
-          </div>
-          <div className="card">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <span style={{fontWeight:'600',fontSize:'18px'}}>消費紀錄</span>
-              <span style={{fontSize:'32px',fontWeight:'700'}}>NT$ {total}</span>
+          `).join(''):'<p style="text-align:center;color:#64748b;padding:40px">尚無群組</p>'}
+          <button class="btn btn-main" onclick="page='new';render()">＋ 新增群組</button>
+        `;
+        return;
+      }
+      
+      // ===== 新增群組 =====
+      if(page==='new'){
+        app.innerHTML=`
+          <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='home';render()">← 返回</button>
+          <h2 class="title">新增群組</h2>
+          
+          <label class="label">群組名稱</label>
+          <input class="input" placeholder="例如：今晚聚餐" id="gname" value="${groupName}" oninput="groupName=this.value;render()"/>
+          
+          <label class="label">分帳方式</label>
+          <div class="flex gap-2 mb-2">
+            <div class="card" style="cursor:pointer;text-align:center;flex:1;border:${mode==='AA'?'3px solid #fbbf24':''}" onclick="mode='AA';render()">
+              <div style="font-size:24px">✂️</div><div style="font-weight:700">AA</div>
             </div>
-            {bills.length===0 && <p style={{color:'#94a3b8',textAlign:'center',padding:'20px'}}>尚無消費</p>}
-            {bills.slice().reverse().map(b=>(<div key={b.id} className="item"><div style={{display:'flex',justifyContent:'space-between'}}><span>{b.title}</span><span style={{fontWeight:'600'}}>{b.amount}</span></div><p style={{color:'#94a3b8',fontSize:'14px'}}>{b.payerName} 付 · {new Date(b.createdAt).toLocaleDateString()}</p></div>))}
+            <div class="card" style="cursor:pointer;text-align:center;flex:1;border:${mode==='AB'?'3px solid #fbbf24':''}" onclick="mode='AB';render()">
+              <div style="font-size:24px">📝</div><div style="font-weight:700">AB</div>
+            </div>
           </div>
-          <button className="btn btn-main" onClick={()=>n(groupId+'/add')}>＋ 新增消費</button>
-          <button className="btn btn-sec" style={{marginTop:'12px'}} onClick={()=>n(groupId+'/settlement')}>📊 結算</button>
-        </div>
-      );
-    }
-    
-    function AddBill({groupId,onBack}){
-      const[group,setGroup]=useState(null);
-      const[title,setTitle]=useState('');
-      const[amount,setAmount]=useState('');
-      const[payerId,setPayerId]=useState('');
-      const[selectedMembers,setSelectedMembers]=useState({});
-      const[sharedFee,setSharedFee]=useState('');
-      const[splitMembers,setSplitMembers]=useState([]);
-      useEffect(()=>{loadGroup();},[groupId]);
-      const loadGroup = async() => {
-        try{const g=await api.getGroup(groupId);setGroup(g.data);
-          if(g.data.members?.length>0){setPayerId(g.data.members[0].id);const s={};g.data.members.forEach(m=>s[m.id]=0);setSelectedMembers(s);setSplitMembers(g.data.members.map(m=>m.id));}}
-        catch{e=(setGroup(getLocalGroup(groupId)),getLocalGroup(groupId)?.members&&(setPayerId(getLocalGroup(groupId).members[0].id),setSplitMembers(getLocalGroup(groupId).members.map(m=>m.id))));}
-      };
-      const toggleSplitMember = (mid) => {setSplitMembers(splitMembers.includes(mid)?splitMembers.filter(id=>id!==mid):[...splitMembers,mid]);};
-      const calcSum = () => Object.values(selectedMembers).reduce((s,v)=>s+(v||0),0);
-      const saveBill = async() => {if(!title||!amount)return;
+          
+          <label class="label">成員</label>
+          <div class="flex gap-2 mb-2">
+            <input class="input flex-1" placeholder="輸入名字" id="mname" value="${newMemberName}" oninput="newMemberName=this.value" style="margin:0"/>
+            <button class="btn" style="width:50px;background:#fef3c7" onclick="addMember()">+</button>
+          </div>
+          <div class="mb-2">${members.map(m=>`<span class="tag" onclick="removeMember('${m.id}')">${m.name} ×</span>`).join('')}</div>
+          
+          <button class="btn btn-main" style="background:${groupName?'#fbbf24':'#d1d5db'}" onclick="createGroup()">建立群組</button>
+        `;
+        return;
+      }
+      
+      // ===== 群組詳情 =====
+      if(page==='group'){
+        const total=bills.reduce((s,b)=>s+b.total,0);
+        app.innerHTML=`
+          <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='home';render()">← 返回</button>
+          
+          <div class="card" style="background:${mode==='AA'?'#fef3c7':'#dcfce7'};border-left:6px solid ${mode==='AA'?'#eab308':'#22c55e'}">
+            <div style="font-size:24px;font-weight:700">${group.name}</div>
+            <p class="text-sm" style="color:#64748b">${members.length}人 · ${mode}</p>
+          </div>
+          
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <span style="font-weight:700;font-size:18px">消費紀錄</span>
+              <span class="money">NT$ ${total}</span>
+            </div>
+            ${!bills.length?'<p style="color:#64748b;text-align:center;padding:20px">尚無消費</p>':
+            bills.slice().reverse().map(b=>`
+              <div class="item" style="cursor:pointer" onclick="editBill('${b.id}')">
+                <div style="display:flex;justify-content:space-between">
+                  <span>${b.title}</span>
+                  <span style="font-weight:700">${b.total}</span>
+                </div>
+                <p class="text-xs" style="color:#64748b">${b.payerName} 付 · ${new Date(b.created).toLocaleDateString()}</p>
+              </div>
+            `).join('')}
+          </div>
+          
+          <button class="btn btn-main" onclick="page='add';items=[];title='';amount='';payerId=members[0]?.id;splitMembers=members.map(m=>m.id);servicePercent=0;sharedFee='';discount=0;editBillId=null;render()">＋ 新增消費</button>
+          <button class="btn btn-sec mt-2" onclick="page='settlement';render()">📊 結算</button>
+        `;
+        return;
+      }
+      
+      // ===== 新增消費 - AA模式 =====
+      if(page==='add' && mode==='AA'){
+        // 計算服務費
+        const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+        const serviceFee=Math.round(itemsTotal*(servicePercent/100));
+        const grandTotal=itemsTotal+serviceFee+(parseFloat(sharedFee)||0);
+        
+        app.innerHTML=`
+          <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='group';render()">← 返回</button>
+          <h2 class="title">新增消費 - AA</h2>
+          
+          <label class="label">品項列表</label>
+          ${items.map((it,idx)=>`
+            <div class="flex gap-2 mb-2" style="align-items:center">
+              <input class="input flex-1" placeholder="品項名稱" value="${it.name}" oninput="items[idx].name=this.value;render()" style="margin:0"/>
+              <input type="number" class="input" placeholder="0" value="${it.amount}" oninput="items[idx].amount=this.value;render()" style="width:80px;margin:0"/>
+              <button class="btn" style="width:40px;padding:8px;background:#fecaca" onclick="items.splice(idx,1);render()">×</button>
+            </div>
+          `).join('')}
+          <button class="btn btn-sec mb-2" onclick="items.push({name:'',amount:''});render()">＋ 加品項</button>
+          
+          <label class="label">服務費 (%)</label>
+          <input type="number" class="input" placeholder="0" value="${servicePercent}" oninput="servicePercent=parseFloat(this.value)||0;render()"/>
+          
+          <label class="label">額外費用（外送費等）</label>
+          <input type="number" class="input" placeholder="0" value="${sharedFee}" oninput="sharedFee=this.value;render()"/>
+          
+          <div class="card" style="background:#fef9c3">
+            <div class="flex" style="justify-content:space-between"><span>品項小計</span><span>NT$ ${itemsTotal}</span></div>
+            <div class="flex" style="justify-content:space-between"><span>服務費(${servicePercent}%)</span><span>NT$ ${serviceFee}</span></div>
+            <div class="flex" style="justify-content:space-between"><span>額外費用</span><span>NT$ ${parseFloat(sharedFee)||0}</span></div>
+            <div class="flex" style="justify-content:space-between;font-weight:700;font-size:18px;margin-top:8px"><span>總計</span><span>NT$ ${grandTotal}</span></div>
+          </div>
+          
+          <label class="label" style="margin-top:16px">誰付錢？</label>
+          <div class="flex gap-2" style="flex-wrap:wrap">${members.map(m=>`<span class="tag ${payerId===m.id?'active':''}" onclick="payerId='${m.id}';render()">${m.name}</span>`).join('')}</div>
+          
+          <label class="label" style="margin-top:16px">誰分攤？</label>
+          <div class="flex gap-2" style="flex-wrap:wrap">${members.map(m=>`<span class="tag ${splitMembers.includes(m.id)?'checked':''}" onclick="toggleSplit('${m.id}')">${m.name}</span>`).join('')}</div>
+          
+          <button class="btn btn-main" style="background:#fbbf24" onclick="saveBillAA()">儲存消費</button>
+        `;
+        return;
+      }
+      
+      // ===== 新增消費 - AB模式 =====
+      if(page==='add' && mode==='AB'){
+        const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
+        const totalBill=parseFloat(amount)||0;
         const shared=parseFloat(sharedFee)||0;
-        let splitAmount=parseFloat(amount);
-        let finalShares=null;
-        if(group.mode==='AA'){if(splitMembers.length>0){finalShares={};const per=splitAmount/splitMembers.length;if(payerId){finalShares[payerId]=splitAmount;splitMembers.forEach(mid=>{if(mid!==payerId)finalShares[mid]=-per;});}}
-        }else{const s={};Object.entries(selectedMembers).forEach(([mid,amt])=>{s[mid]=(amt||0)+(shared/(group.members.length||1));});finalShares=s;splitAmount+=shared;}
-        const data={title,amount:splitAmount,payerId,shares:finalShares,sharedFee:shared,splitMembers:group.mode==='AA'?splitMembers:null,createdAt:Date.now()};
-        try{await api.addBill(groupId,data);n(groupId);}catch{e=(const g=getLocalGroup(groupId);g.bills.push({...data,id:'b_'+Date.now()});g.totalAmount=g.bills.reduce((s,b)=>s+b.amount,0);saveLocalGroup(g);n(groupId));}
-      };
-      if(!group) return <div className="text-center py-8">載入中...</div>;
-      const splitPer = splitMembers.length?(parseFloat(amount)/splitMembers.length).toFixed(0):0;
-      const sumInd=calcSum();
-      const diff=parseFloat(amount||0)-sumInd;
-      return(
-        <div>
-          <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
-          <h2 className="title" style={{marginBottom:'24px'}}>新增消費</h2>
-          <label className="label">消費項目</label>
-          <input className="input" placeholder="例如：晚餐" value={title} onChange={e=>setTitle(e.target.value)}/>
-          <label className="label">多少錢？</label>
-          <input className="input" placeholder="0" type="number" value={amount} onChange={e=>setAmount(e.target.value)} style={{fontSize:'32px'}}/>
-          <label className="label" style={{marginTop:'16px'}}>誰付錢？</label>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'20px'}}>{group.members?.map(m=>(<div key={m.id} className="tag" style={payerId===m.id?{background:'#6366f1',color:'white'}:{}} onClick={()=>setPayerId(m.id)}>{m.name}</div>))}</div>
-          {group.mode==='AA'&&(<>
-            <label className="label">誰要分攤？</label>
-            <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'20px'}}>{group.members?.map(m=>(<div key={m.id} className="tag" style={splitMembers.includes(m.id)?{background:'#6366f1',color:'white'}:{}} onClick={()=>toggleSplitMember(m.id)}>{m.name}</div>))}</div>
-            {splitMembers.length>0&&amount&&<p style={{color:'#64748b',fontSize:'14px',marginTop:'-12px',marginBottom:'16px'}}>每人 NT$ {splitPer}（{splitMembers.length}人）</p>}
-          </>)}
-          {group.mode==='AB'&&(<>
-            <label className="label">各別輸入金額</label>
-            {group.members?.map(m=>(<div key={m.id} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}><span style={{flex:1}}>{m.name}</span><input type="number" className="input" style={{width:'120px',margin:0}} placeholder="0" value={selectedMembers[m.id]||''} onChange={e=>{setSelectedMembers({...selectedMembers,[m.id]:parseFloat(e.target.value)||0});}}/></div>))}
-            {amount&&sumInd>0&&<div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',marginTop:'16px'}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}><span>個人輸入：</span><span style={{fontWeight:'600'}}>NT$ {sumInd}</span></div>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}><span>帳單總額：</span><span style={{fontWeight:'600'}}>NT$ {amount}</span></div>
-              {diff!==0&&<div className="suggestion"><p style={{color:'#92400e',fontWeight:'600'}}>⚠️ 差額 NT$ {Math.abs(diff).toFixed(0)}</p><input className="input" style={{marginTop:'8px',borderColor:'#f59e0b'}} placeholder={`建議 ${Math.abs(diff).toFixed(0)}`} value={sharedFee} onChange={e=>setSharedFee(e.target.value)}/></div>}
-            </div>}
-            <label className="label" style={{marginTop:'16px'}}>均分費用（外送費）</label>
-            <input className="input" placeholder="0" value={sharedFee} onChange={e=>setSharedFee(e.target.value)}/>
-          </>)}
-          <button className="btn btn-main" onClick={saveBill} disabled={!title||!amount}>儲存</button>
-        </div>
-      );
+        const disc=parseFloat(discount)||0;
+        
+        // 計算折扣分配
+        let discountPerPerson=0;
+        if(discountType==='proportional' && personalSum>0){
+          // 按比例
+          Object.keys(shares).forEach(mid=>{
+            const ratio=(shares[mid]||0)/personalSum;
+            shares[mid]=(shares[mid]||0)-disc*ratio;
+          });
+        }else if(discountType==='average'){
+          discountPerPerson=disc/members.length;
+        }
+        
+        const actualTotal=personalSum+shared-disc;
+        const diff=totalBill-(actualTotal||0);
+        
+        app.innerHTML=`
+          <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='group';render()">← 返回</button>
+          <h2 class="title">新增消費 - AB</h2>
+          
+          <label class="label">帳單總額</label>
+          <input type="number" class="input" placeholder="0" value="${amount}" oninput="amount=this.value;render()"/>
+          
+          <label class="label">公共費用（外送費等）</label>
+          <input type="number" class="input" placeholder="0" value="${sharedFee}" oninput="sharedFee=this.value;render()"/>
+          
+          <label class="label">折扣</label>
+          <input type="number" class="input" placeholder="0" value="${discount}" oninput="discount=this.value;render()"/>
+          <div class="flex gap-2 mb-2">
+            <span class="tag ${discountType==='proportional'?'active':''}" onclick="discountType='proportional';render()">按比例</span>
+            <span class="tag ${discountType==='average'?'active':''}" onclick="discountType='average';render()">平均</span>
+          </div>
+          
+          <label class="label">個人點餐金額</label>
+          ${members.map(m=>`
+            <div class="flex gap-2 mb-2" style="align-items:center">
+              <span style="flex:1;font-weight:600">${m.name}</span>
+              <input type="number" class="input" placeholder="0" value="${shares[m.id]||''}" oninput="shares[m.id]=this.value;render()" style="width:100px;margin:0"/>
+            </div>
+          `).join('')}
+          
+          ${amount && personalSum>0?`
+            <div class="card" style="background:#fef9c3">
+              <div class="flex" style="justify-content:space-between"><span>個人總和</span><span>NT$ ${personalSum}</span></div>
+              <div class="flex" style="justify-content:space-between"><span>公共費用</span><span>NT$ ${shared}</span></div>
+              <div class="flex" style="justify-content:space-between"><span>折扣</span><span>-NT$ ${disc}</span></div>
+              <div class="flex" style="justify-content:space-between"><span>帳單總額</span><span>NT$ ${amount}</span></div>
+              ${diff!==0?`
+                <div class="diff-alert">
+                  <p style="color:#b45309;font-weight:700">⚠️ 差額 NT$ ${Math.abs(diff).toFixed(0)}</p>
+                  <button class="btn btn-sec mt-2" onclick="fixDiff()">一鍵修正差額</button>
+                </div>
+              `:''}
+            </div>
+          `:''}
+          
+          <button class="btn btn-main" style="background:#fbbf24" onclick="saveBillAB()">儲存消費</button>
+        `;
+        return;
+      }
+      
+      // ===== 結算 =====
+      if(page==='settlement'){
+        // 計算結算
+        const balances={};
+        members.forEach(m=>balances[m.id]=0);
+        
+        bills.forEach(b=>{
+          if(mode==='AA'){
+            const list=b.splitMembers||members.map(m=>m.id);
+            const each=b.total/list.length;
+            if(b.payerId){
+              balances[b.payerId]+=b.total;
+              list.forEach(mid=>{if(mid!==b.payerId)balances[mid]-=each;});
+            }
+          }else{
+            if(b.shares){
+              Object.entries(b.shares).forEach(([mid,amt])=>{
+                balances[mid]=(balances[mid]||0)+amt;
+              });
+            }
+          }
+        });
+        
+        const total=bills.reduce((s,b)=>s+b.total,0);
+        
+        // 簡化還款路徑
+        const debtors=[], creditors=[];
+        members.forEach(m=>{
+          const bal=balances[m.id]||0;
+          if(bal<-0.01)debtors.push({id:m.id,name:m.name,amount:-bal});
+          if(bal>0.01)creditors.push({id:m.id,name:m.name,amount:bal});
+        });
+        
+        // 四捨五入校正（差額歸墊錢者）
+        const totalBalance=Object.values(balances).reduce((s,v)=>s+v,0);
+        const diff=Math.round(totalBalance);
+        if(diff!==0 && payerId){
+          balances[payerId]=(balances[payerId]||0)+diff;
+        }
+        
+        app.innerHTML=`
+          <button class="text-sm" style="border:none;background:none;cursor:pointer;margin-bottom:16px" onclick="page='group';render()">← 返回</button>
+          <h2 class="title">結算</h2>
+          
+          <div class="card" style="text-align:center">
+            <p style="color:#64748b">總金額</p>
+            <p class="money">NT$ ${total}</p>
+          </div>
+          
+          <div class="card">
+            ${members.map(m=>{
+              const amt=balances[m.id]||0;
+              return `<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f1f5f9">
+                <span style="font-weight:600">${m.name}</span>
+                <span class="${amt>0?'positive':amt<0?'negative':''}">${amt>0?'+':''}${amt.toFixed(0)}</span>
+              </div>`;
+            })}
+          </div>
+          
+          ${debtors.length && creditors.length?`
+            <div class="card">
+              <p style="font-weight:700;margin-bottom:12px">還款路徑</p>
+              ${debtors.map(d=>{
+                let remaining=d.amount;
+                return creditors.filter(c=>c.amount>0).map(c=>{
+                  if(remaining<=0)return'';
+                  const give=Math.min(remaining,c.amount);
+                  remaining-=give;
+                  c.amount-=give;
+                  return `<div style="padding:8px 0;border-bottom:1px dashed #e5e7eb">
+                    <span style="font-weight:600">${d.name}</span> 給 <span style="font-weight:600">${c.name}</span> 
+                    <span style="color:#22c55e;font-weight:700">NT$ ${give.toFixed(0)}</span>
+                  </div>`;
+                }).join('');
+              }).join('')}
+            </div>
+          `:''}
+          
+          <button class="btn btn-danger mt-2" onclick="settle()">💚 一鍵結清</button>
+          <button class="btn btn-sec mt-2" onclick="copyResult()">📋 複製結算內容</button>
+          <button class="btn btn-sec mt-2" onclick="exportJSON()">💾 匯出資料</button>
+        `;
+        return;
+      }
     }
     
-    function Settlement({groupId,onBack}){
-      const[balances,setBalances]=useState(null);
-      const[total,setTotal]=useState(0);
-      useEffect(()=>{loadSettlement();},[groupId]);
-      const loadSettlement = async() => {
-        try{const res=await api.getSettlement(groupId);setBalances(res.data.balances);setTotal(res.data.total);}
-        catch{e=(const g=getLocalGroup(groupId);const bal={};g.members.forEach(m=>bal[m.id]=0);g.bills.forEach(b=>{if(g.mode==='AA'){const list=b.splitMembers||g.members.map(m=>m.id);const per=b.amount/(list.length||1);if(b.payerId){bal[b.payerId]+=b.amount;list.forEach(mid=>{if(mid!==b.payerId)bal[mid]-=per;});}}else if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>bal[mid]=(bal[mid]||0)+amt);});setBalances(g.members.map(m=>({...m,balance:bal[m.id]||0})));setTotal(g.bills.reduce((s,b)=>s+b.amount,0));}
+    // ===== 函式 =====
+    function addMember(){if(!newMemberName)return;members.push({id:uid(),name:newMemberName});newMemberName='';render();document.getElementById('mname').value='';}
+    function removeMember(id){members=members.filter(m=>m.id!==id);render();}
+    function toggleSplit(id){splitMembers=splitMembers.includes(id)?splitMembers.filter(x=>x!==id):[...splitMembers,id];render();}
+    
+    function createGroup(){if(!groupName)return;const g={id:uid(),name:groupName,mode,members,bills:[],created:Date.now(),updated:Date.now()};saveGroup(g);group=g;page='group';render();}
+    function openGroup(id){group=getGroup(id);if(!group)return;members=group.members;bills=group.bills;mode=group.mode;page='group';render();}
+    
+    function saveBillAA(){
+      if(!items.length || !payerId)return;
+      
+      const itemsTotal=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const serviceFee=Math.round(itemsTotal*(servicePercent/100));
+      const shared=parseFloat(sharedFee)||0;
+      const total=itemsTotal+serviceFee+shared;
+      
+      const bill={
+        id:editBillId||uid(),
+        title:items.map(i=>i.name).join('、'),
+        items:[...items],
+        servicePercent,
+        sharedFee:shared,
+        total,
+        payerId,
+        payerName:members.find(m=>m.id===payerId)?.name||'?',
+        splitMembers:[...splitMembers],
+        created:Date.now()
       };
-      const settle = async() => {if(!confirm('確定結清？'))return;try{await api.settleGroup(groupId);n(groupId);}catch{e=(const g=getLocalGroup(groupId);g.bills=[];g.totalAmount=0;saveLocalGroup(g);n(groupId));}};
-      return(
-        <div>
-          <button style={{color:'#94a3b8',border:'none',background:'none',cursor:'pointer',marginBottom:'16px'}} onClick={onBack}>← 返回</button>
-          <h2 className="title" style={{marginBottom:'24px'}}>結算</h2>
-          <div className="card" style={{textAlign:'center'}}><p style={{color:'#64748b',fontSize:'14px'}}>總金額</p><p style={{fontSize:'32px',fontWeight:'700'}}>NT$ {total}</p></div>
-          <div className="card">{balances?.map(m=>(<div key={m.id} style={{display:'flex',justifyContent:'space-between',padding:'16px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'18px',fontWeight:'500'}}>{m.name}</span><span style={m.balance>0?{color:'#ef4444',fontWeight:'600'}:m.balance<0?{color:'#22c55e',fontWeight:'600'}:{}}>{m.balance>0?'+':''}{m.balance.toFixed(0)}</span></div>))}</div>
-          <button className="btn btn-danger" style={{marginTop:'20px'}} onClick={settle}>💚 一鍵結清</button>
-          <div style={{height:'80px'}}></div>
-        </div>
-      );
+      
+      if(editBillId){
+        const idx=bills.findIndex(b=>b.id===editBillId);
+        if(idx>=0)bills[idx]=bill;
+      }else{
+        bills.push(bill);
+      }
+      
+      group.bills=bills;group.updated=Date.now();saveGroup(group);
+      resetAdd();page='group';render();
     }
     
-    let currentPath='';const n=(path)=>{currentPath=path;render();};
-    function App(){const pid=localStorage.getItem('current_group');if(!pid&&!currentPath)return<Home/>;if(currentPath==='new')return<NewGroup onBack={()=>n('')}/>;if(currentPath&&currentPath.includes('/add'))return<AddBill groupId={currentPath.replace('/add','')} onBack={()=>n(pid)}/>;if(currentPath&&currentPath.includes('/settlement'))return<Settlement groupId={currentPath.replace('/settlement','')} onBack={()=>n(pid)}/>;if(currentPath&&currentPath!=='new')return<GroupDetail groupId={currentPath} onBack={()=>n('')}/>;return<Home/>;}
-    function render(){ReactDOM.render(<App/>,document.getElementById('app'));}render();
+    function saveBillAB(){
+      if(!amount || !payerId)return;
+      
+      const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
+      const totalBill=parseFloat(amount);
+      const shared=parseFloat(sharedFee)||0;
+      const disc=parseFloat(discount)||0;
+      
+      // 分配折扣
+      let finalShares={...shares};
+      if(disc>0){
+        if(discountType==='proportional' && personalSum>0){
+          Object.keys(finalShares).forEach(mid=>{
+            const ratio=(finalShares[mid]||0)/personalSum;
+            finalShares[mid]=(finalShares[mid]||0)-disc*ratio;
+          });
+        }else{
+          const avg=disc/members.length;
+          Object.keys(finalShares).forEach(mid=>{
+            finalShares[mid]=(finalShares[mid]||0)-avg;
+          });
+        }
+      }
+      
+      // 加上公共費用
+      const sharedPerPerson=shared/members.length;
+      Object.keys(finalShares).forEach(mid=>{
+        finalShares[mid]=(finalShares[mid]||0)+sharedPerPerson;
+      });
+      
+      const bill={
+        id:editBillId||uid(),
+        title:amount, // 顯示總額
+        amount:totalBill,
+        sharedFee:shared,
+        discount,
+        discountType,
+        total:totalBill,
+        payerId,
+        payerName:members.find(m=>m.id===payerId)?.name||'?',
+        shares:finalShares,
+        created:Date.now()
+      };
+      
+      if(editBillId){
+        const idx=bills.findIndex(b=>b.id===editBillId);
+        if(idx>=0)bills[idx]=bill;
+      }else{
+        bills.push(bill);
+      }
+      
+      group.bills=bills;group.updated=Date.now();saveGroup(group);
+      resetAdd();page='group';render();
+    }
+    
+    function resetAdd(){title='';amount='';payerId='';shares={};sharedFee='';splitMembers=[];servicePercent=0;discount=0;editBillId=null;items=[];}
+    
+    function editBill(id){
+      const bill=bills.find(b=>b.id===id);
+      if(!bill)return;
+      editBillId=id;
+      
+      if(mode==='AA'){
+        items=bill.items?bill.items.map(i=>({name:i.name,amount:i.amount})):[{name:bill.title,amount:bill.total}];
+        servicePercent=bill.servicePercent||0;
+        sharedFee=bill.sharedFee||'';
+        payerId=bill.payerId;
+        splitMembers=bill.splitMembers||members.map(m=>m.id);
+      }else{
+        amount=bill.amount||'';
+        sharedFee=bill.sharedFee||'';
+        discount=bill.discount||0;
+        discountType=bill.discountType||'proportional';
+        payerId=bill.payerId;
+        shares=bill.shares||{};
+      }
+      
+      page='add';render();
+    }
+    
+    function fixDiff(){
+      const totalBill=parseFloat(amount)||0;
+      const personalSum=Object.values(shares).reduce((s,v)=>s+(parseFloat(v)||0),0);
+      const shared=parseFloat(sharedFee)||0;
+      const disc=parseFloat(discount)||0;
+      const diff=totalBill-(personalSum+shared-disc);
+      // 差額加到付款人
+      shares[payerId]=(shares[payerId]||0)+diff;
+      render();
+    }
+    
+    function settle(){
+      if(!confirm('確定結清？會清除所有消費紀錄'))return;
+      bills=[];
+      group.bills=[];group.updated=Date.now();saveGroup(group);
+      page='group';render();
+    }
+    
+    function copyResult(){
+      const total=bills.reduce((s,b)=>s+b.total,0);
+      const balances={};
+      members.forEach(m=>balances[m.id]=0);
+      
+      bills.forEach(b=>{
+        if(mode==='AA'){
+          const list=b.splitMembers||members.map(m=>m.id);
+          const each=b.total/list.length;
+          if(b.payerId){balances[b.payerId]+=b.total;list.forEach(mid=>{if(mid!==b.payerId)balances[mid]-=each;});}
+        }else{
+          if(b.shares)Object.entries(b.shares).forEach(([mid,amt])=>balances[mid]=(balances[mid]||0)+amt);
+        }
+      });
+      
+      let text=`🍽️ ${group.name} 結算\n`;
+      text+=`總金額：NT$ ${total}\n\n`;
+      members.forEach(m=>{
+        const amt=balances[m.id]||0;
+        if(amt>0)text+=`${m.name} 應付：NT$ ${amt.toFixed(0)}\n`;
+        if(amt<0)text+=`${m.name} 應收：NT$ ${Math.abs(amt).toFixed(0)}\n`;
+      });
+      
+      navigator.clipboard.writeText(text);
+      alert('✅ 已複製到剪貼簿');
+    }
+    
+    function exportJSON(){
+      const data={group:{...group},members,bills};
+      const json=JSON.stringify(data,null,2);
+      navigator.clipboard.writeText(json);
+      alert('✅ JSON 已複製到剪貼簿');
+    }
+    
+    // 初始化
+    render();
   </script>
 </body>
 </html>
